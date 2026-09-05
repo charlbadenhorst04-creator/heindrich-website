@@ -1,5 +1,4 @@
 from fastapi import APIRouter, Request, Response
-from sqlalchemy import select
 
 from app.api.deps import DbSession
 from app.models.order import Order, OrderStatus

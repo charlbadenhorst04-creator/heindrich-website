@@ -72,6 +72,12 @@ async def remove_item(session_key: str, item_id: uuid.UUID, db: DbSession) -> Ca
     if item is None:
         raise HTTPException(status_code=404, detail="Cart item not found")
 
-    await db.delete(item)
+    # Removing from the (already-loaded) collection - rather than calling
+    # db.delete(item) directly - keeps the in-memory relationship and the
+    # database in sync in one step: the "delete-orphan" cascade on
+    # Cart.items issues the DELETE at flush time. Deleting the child object
+    # directly leaves the parent's already-loaded `items` list stale for
+    # the rest of this request, even though the DB row is correctly gone.
+    cart.items.remove(item)
     await db.commit()
     return await get_cart(session_key, db)

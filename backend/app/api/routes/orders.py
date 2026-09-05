@@ -7,7 +7,6 @@ from sqlalchemy.orm import selectinload
 from app.api.deps import DbSession
 from app.models.cart import Cart, CartItem
 from app.models.order import Order, OrderItem
-from app.models.product import Product
 from app.schemas.order import CheckoutRequest, OrderRead, PayfastInitiateResponse
 from app.services.payfast import build_checkout_fields
 from app.core.config import settings

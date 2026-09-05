@@ -3,10 +3,12 @@ __pycache__/
 *.py[cod]
 *.egg-info/
 .venv/
+.venv-*/
 venv/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+backend/build/
 
 ## Node / Frontend
 node_modules/

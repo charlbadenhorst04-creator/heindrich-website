@@ -75,7 +75,7 @@ export default function Checkout() {
     try {
       const response = await api.checkout({ session_key: sessionKey, ...form });
       submitPayfastForm(response.action_url, response.fields);
-    } catch (err) {
+    } catch {
       setError("Something went wrong preparing your payment. Please try again.");
       setSubmitting(false);
     }

@@ -3,9 +3,9 @@
 *Your Style. Your Story.*
 
 MERAVO is an e-commerce storefront for South African online shopping —
-browse products, add them to a cart, and pay securely via Payfast. Built
-as a decoupled FastAPI (Python) API and a React (TypeScript) frontend,
-running entirely in Docker.
+browse products, add them to a cart, pay securely via Payfast, and get
+nationwide delivery via Aramex. Built as a decoupled FastAPI (Python) API
+and a React (TypeScript) frontend, running entirely in Docker.
 
 ## Tech stack
 
@@ -126,3 +126,42 @@ cd frontend
 npm install
 npm run dev
 ```
+
+## Testing
+
+Backend (unit tests + real integration tests against Postgres — cart,
+checkout/shipping math, auth, Payfast notify):
+```bash
+cd backend
+createdb meravo_test   # once, if it doesn't exist yet
+pip install -e ".[dev]"
+pytest
+```
+
+Frontend:
+```bash
+cd frontend
+npm run lint      # ESLint
+npm run build     # type-checks (tsc -b) then builds
+```
+
+Netlify functions (see "Netlify preview deployment" below) have their own
+real-execution test suite — they run raw SQL directly against Postgres, so
+type-checking alone can't catch bugs like a column name collision:
+```bash
+cd frontend
+createdb meravo_netlify_test   # once, if it doesn't exist yet
+npm run test:functions
+```
+
+## Netlify preview deployment
+
+`netlify.toml` and `frontend/netlify/` configure an optional, independent
+deployment target: a Node/TypeScript mirror of the same API (same schema,
+same Payfast flow, same shipping rules) backed by Netlify DB (Postgres via
+Neon), for teams who want a shareable preview link without standing up
+their own server. It's kept in sync by hand with the FastAPI backend — the
+backend in `backend/` remains the source of truth and the one intended for
+production. To deploy: create a Netlify site, link this repository, and
+set the `PAYFAST_*` environment variables in the Netlify UI; the build
+picks up `netlify.toml` automatically.
