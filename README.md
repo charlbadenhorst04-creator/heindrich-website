@@ -45,9 +45,13 @@ cp .env.example .env   # edit values as needed
 docker compose up --build
 ```
 
-- Frontend: http://localhost:8080
+- Frontend: http://localhost:8090
 - Backend API: http://localhost:8000/api (interactive docs at http://localhost:8000/docs)
 - Postgres: localhost:5432
+
+If any of these ports are already used by something else on your machine, change
+`FRONTEND_PORT` / `BACKEND_PORT` / `POSTGRES_PORT` in `.env` and re-run
+`docker compose up --build`.
 
 On first boot the backend automatically runs Alembic migrations and seeds
 demo categories/products (see `backend/app/seed.py`) so the site isn't

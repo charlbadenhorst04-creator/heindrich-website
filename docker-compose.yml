@@ -27,16 +27,16 @@ services:
       DATABASE_URL: ${DATABASE_URL:-postgresql+asyncpg://meravo:change-me@db:5432/meravo}
       SECRET_KEY: ${SECRET_KEY:-change-me-to-a-long-random-string}
       ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-60}
-      BACKEND_CORS_ORIGINS: ${BACKEND_CORS_ORIGINS:-http://localhost:5173,http://127.0.0.1:5173,http://localhost:8080,http://127.0.0.1:8080}
+      BACKEND_CORS_ORIGINS: ${BACKEND_CORS_ORIGINS:-http://localhost:5173,http://127.0.0.1:5173,http://localhost:8090,http://127.0.0.1:8090}
       PAYFAST_MODE: ${PAYFAST_MODE:-sandbox}
       PAYFAST_MERCHANT_ID: ${PAYFAST_MERCHANT_ID:-10000100}
       PAYFAST_MERCHANT_KEY: ${PAYFAST_MERCHANT_KEY:-46f0cd694581a}
       PAYFAST_PASSPHRASE: ${PAYFAST_PASSPHRASE:-}
-      PAYFAST_RETURN_URL: ${PAYFAST_RETURN_URL:-http://localhost:8080/order-success}
-      PAYFAST_CANCEL_URL: ${PAYFAST_CANCEL_URL:-http://localhost:8080/cart}
-      PAYFAST_NOTIFY_URL: ${PAYFAST_NOTIFY_URL:-http://localhost:8000/api/payments/payfast/notify}
+      PAYFAST_RETURN_URL: ${PAYFAST_RETURN_URL:-http://localhost:8090/order-success}
+      PAYFAST_CANCEL_URL: ${PAYFAST_CANCEL_URL:-http://localhost:8090/cart}
+      PAYFAST_NOTIFY_URL: ${PAYFAST_NOTIFY_URL:-http://localhost:${BACKEND_PORT:-8000}/api/payments/payfast/notify}
     ports:
-      - "8000:8000"
+      - "${BACKEND_PORT:-8000}:8000"
 
   frontend:
     build:
@@ -47,7 +47,7 @@ services:
     depends_on:
       - backend
     ports:
-      - "8080:80"
+      - "${FRONTEND_PORT:-8090}:80"
 
 volumes:
   meravo_pgdata:
