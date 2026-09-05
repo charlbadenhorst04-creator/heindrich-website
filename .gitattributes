@@ -1,0 +1,8 @@
+# Force LF line endings for files that run inside Linux containers,
+# regardless of the checkout platform's autocrlf settings - a shell
+# script checked out with CRLF fails with "no such file or directory"
+# because the shebang line becomes "#!/bin/sh\r".
+*.sh text eol=lf
+Dockerfile text eol=lf
+*.mts text eol=lf
+*.py text eol=lf
