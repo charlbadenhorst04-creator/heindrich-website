@@ -1,8 +1,9 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useState } from "react";
-import { Link, NavLink } from "react-router-dom";
+import { Link, NavLink, useLocation } from "react-router-dom";
 
 import { useCartStore } from "../store/cartStore";
+import Logo from "./Logo";
 
 const links = [
   { to: "/", label: "Home" },
@@ -14,33 +15,48 @@ const links = [
 export default function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false);
   const { fetchCart, itemCount } = useCartStore();
+  const location = useLocation();
 
   useEffect(() => {
     fetchCart();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  useEffect(() => {
+    setMenuOpen(false);
+  }, [location.pathname]);
+
   return (
     <header className="sticky top-0 z-40 bg-blush-50/90 backdrop-blur border-b border-maroon-100">
       <nav className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6 lg:px-8">
-        <Link to="/" className="font-display text-2xl font-semibold tracking-wide text-maroon-700">
+        <Link
+          to="/"
+          className="flex items-center gap-2 font-display text-2xl font-semibold tracking-wide text-maroon-700"
+        >
+          <Logo className="h-7 w-7 text-maroon-700" />
           MERAVO
         </Link>
 
         <div className="hidden md:flex items-center gap-8">
-          {links.map((link) => (
-            <NavLink
-              key={link.to}
-              to={link.to}
-              className={({ isActive }) =>
-                `text-sm font-medium tracking-wide transition-colors hover:text-maroon-600 ${
-                  isActive ? "text-maroon-700" : "text-maroon-900/70"
-                }`
-              }
-            >
-              {link.label}
-            </NavLink>
-          ))}
+          {links.map((link) => {
+            const isActive = location.pathname === link.to;
+            return (
+              <NavLink
+                key={link.to}
+                to={link.to}
+                className="relative py-1 text-sm font-medium tracking-wide text-maroon-900/70 transition-colors hover:text-maroon-600 aria-[current=page]:text-maroon-700"
+              >
+                {link.label}
+                {isActive && (
+                  <motion.span
+                    layoutId="nav-underline"
+                    className="absolute -bottom-0.5 left-0 right-0 h-0.5 rounded-full bg-maroon-600"
+                    transition={{ type: "spring", stiffness: 380, damping: 30 }}
+                  />
+                )}
+              </NavLink>
+            );
+          })}
         </div>
 
         <div className="flex items-center gap-4">

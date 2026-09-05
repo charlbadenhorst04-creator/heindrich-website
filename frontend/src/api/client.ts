@@ -8,6 +8,7 @@ import type {
   PayfastInitiateResponse,
   ProductListResponse,
   Product,
+  ShippingConfig,
 } from "./types";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000/api";
@@ -55,6 +56,10 @@ export const api = {
   },
   getOrder: async (orderId: string) => {
     const { data } = await client.get<Order>(`/orders/${orderId}`);
+    return data;
+  },
+  getShippingConfig: async () => {
+    const { data } = await client.get<ShippingConfig>("/shipping/config");
     return data;
   },
 };

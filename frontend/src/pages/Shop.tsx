@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 
 import { api } from "../api/client";
 import ProductCard from "../components/ProductCard";
+import ProductCardSkeleton from "../components/ProductCardSkeleton";
 import type { Category, Product } from "../api/types";
 
 export default function Shop() {
@@ -68,9 +69,9 @@ export default function Shop() {
       </div>
 
       <div className="mt-10 grid grid-cols-2 gap-4 sm:grid-cols-3 sm:gap-6 lg:grid-cols-4">
-        {products.map((product, i) => (
-          <ProductCard key={product.id} product={product} index={i} />
-        ))}
+        {loading
+          ? Array.from({ length: 8 }).map((_, i) => <ProductCardSkeleton key={i} />)
+          : products.map((product, i) => <ProductCard key={product.id} product={product} index={i} />)}
       </div>
 
       {!loading && products.length === 0 && (

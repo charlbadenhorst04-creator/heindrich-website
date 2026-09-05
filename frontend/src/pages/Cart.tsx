@@ -6,11 +6,13 @@ import { useCartStore } from "../store/cartStore";
 import { formatZAR } from "../utils/format";
 
 export default function Cart() {
-  const { cart, fetchCart, updateItem, removeItem } = useCartStore();
+  const { cart, fetchCart, updateItem, removeItem, fetchShippingConfig, shippingConfig, shippingFee, grandTotal } =
+    useCartStore();
   const navigate = useNavigate();
 
   useEffect(() => {
     fetchCart();
+    fetchShippingConfig();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -98,13 +100,24 @@ export default function Cart() {
               <span>{formatZAR(cart.total)}</span>
             </div>
             <div className="mt-2 flex justify-between text-sm text-maroon-900/70">
-              <span>Shipping</span>
-              <span>Calculated at checkout</span>
+              <span>Shipping ({shippingConfig?.courier ?? "Aramex"})</span>
+              <span>{shippingFee() === 0 ? "Free" : formatZAR(shippingFee())}</span>
             </div>
+            {shippingConfig && shippingFee() > 0 && (
+              <p className="mt-1 text-xs text-maroon-900/40">
+                Free shipping on orders over {formatZAR(shippingConfig.free_shipping_threshold)}
+              </p>
+            )}
             <div className="mt-4 flex justify-between border-t border-maroon-100 pt-4 font-display text-lg text-maroon-800">
               <span>Total</span>
-              <span>{formatZAR(cart.total)}</span>
+              <span>{formatZAR(grandTotal())}</span>
             </div>
+            <p className="mt-2 flex items-center gap-1.5 text-xs text-maroon-900/50">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 18.75a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 01-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h1.125c.621 0 1.129-.504 1.09-1.124a17.902 17.902 0 00-3.213-9.193 2.056 2.056 0 00-1.58-.86H14.25M16.5 18.75h-2.25m0-12.75h-1.5m-6 7.5V6.375c0-.621.504-1.125 1.125-1.125h8.626c.621 0 1.125.504 1.125 1.125v6.75" />
+              </svg>
+              Delivered nationwide via {shippingConfig?.courier ?? "Aramex"}, {shippingConfig?.estimated_delivery ?? "2-4 business days"}
+            </p>
             <button
               onClick={() => navigate("/checkout")}
               className="mt-6 w-full rounded-full bg-maroon-700 py-3 text-sm font-semibold text-white hover:bg-maroon-800"

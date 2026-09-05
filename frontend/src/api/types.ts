@@ -61,12 +61,23 @@ export interface Order {
   city: string;
   postal_code: string;
   province: string;
+  subtotal_amount: number;
+  shipping_fee: number;
   total_amount: number;
   status: string;
+  courier: string;
+  tracking_number: string;
   items: {
     id: string;
     product_name: string;
     unit_price: number;
     quantity: number;
   }[];
+}
+
+export interface ShippingConfig {
+  courier: string;
+  flat_fee: number;
+  free_shipping_threshold: number;
+  estimated_delivery: string;
 }

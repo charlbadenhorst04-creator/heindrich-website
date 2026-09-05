@@ -5,16 +5,21 @@ import { Link } from "react-router-dom";
 import type { Product } from "../api/types";
 import { useCartStore } from "../store/cartStore";
 import { formatZAR } from "../utils/format";
+import { useToast } from "./ToastProvider";
 
 export default function ProductCard({ product, index = 0 }: { product: Product; index?: number }) {
   const addItem = useCartStore((s) => s.addItem);
   const [adding, setAdding] = useState(false);
+  const { showToast } = useToast();
 
   const handleAdd = async (e: React.MouseEvent) => {
     e.preventDefault();
     setAdding(true);
     try {
       await addItem(product.id, 1);
+      showToast(`${product.name} added to cart`);
+    } catch {
+      showToast("Couldn't add that to your cart. Please try again.", "error");
     } finally {
       setAdding(false);
     }

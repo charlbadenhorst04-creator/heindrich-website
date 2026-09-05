@@ -14,7 +14,9 @@ export default function Footer() {
           </div>
           <div>
             <p className="text-sm font-semibold text-maroon-800">Shipping</p>
-            <p className="mt-2 text-sm text-maroon-900/60">Proudly South African. We ship nationwide.</p>
+            <p className="mt-2 text-sm text-maroon-900/60">
+              Proudly South African. Delivered nationwide via Aramex, 2-4 business days.
+            </p>
           </div>
         </div>
         <p className="mt-8 text-xs text-maroon-900/40">

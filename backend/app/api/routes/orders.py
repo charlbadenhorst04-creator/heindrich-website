@@ -11,6 +11,7 @@ from app.models.product import Product
 from app.schemas.order import CheckoutRequest, OrderRead, PayfastInitiateResponse
 from app.services.payfast import build_checkout_fields
 from app.core.config import settings
+from app.core.shipping import COURIER_NAME, compute_shipping_fee
 
 router = APIRouter(prefix="/orders", tags=["orders"])
 
@@ -26,7 +27,9 @@ async def checkout(payload: CheckoutRequest, db: DbSession) -> PayfastInitiateRe
     if cart is None or not cart.items:
         raise HTTPException(status_code=400, detail="Cart is empty")
 
-    total = sum(item.product.price * item.quantity for item in cart.items)
+    subtotal = float(sum(item.product.price * item.quantity for item in cart.items))
+    shipping_fee = compute_shipping_fee(subtotal)
+    total = subtotal + shipping_fee
 
     order = Order(
         customer_email=payload.customer_email,
@@ -36,7 +39,10 @@ async def checkout(payload: CheckoutRequest, db: DbSession) -> PayfastInitiateRe
         postal_code=payload.postal_code,
         province=payload.province,
         phone=payload.phone,
+        subtotal_amount=subtotal,
+        shipping_fee=shipping_fee,
         total_amount=total,
+        courier=COURIER_NAME,
     )
     order.items = [
         OrderItem(

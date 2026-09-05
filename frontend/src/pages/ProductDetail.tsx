@@ -6,6 +6,7 @@ import { api } from "../api/client";
 import { useCartStore } from "../store/cartStore";
 import type { Product } from "../api/types";
 import { formatZAR } from "../utils/format";
+import { useToast } from "../components/ToastProvider";
 
 export default function ProductDetail() {
   const { slug } = useParams<{ slug: string }>();
@@ -14,6 +15,7 @@ export default function ProductDetail() {
   const [adding, setAdding] = useState(false);
   const [added, setAdded] = useState(false);
   const addItem = useCartStore((s) => s.addItem);
+  const { showToast } = useToast();
 
   useEffect(() => {
     if (!slug) return;
@@ -32,7 +34,10 @@ export default function ProductDetail() {
     try {
       await addItem(product.id, quantity);
       setAdded(true);
+      showToast(`${product.name} added to cart`);
       setTimeout(() => setAdded(false), 1800);
+    } catch {
+      showToast("Couldn't add that to your cart. Please try again.", "error");
     } finally {
       setAdding(false);
     }

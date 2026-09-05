@@ -36,7 +36,8 @@ function submitPayfastForm(actionUrl: string, fields: Record<string, string>) {
 }
 
 export default function Checkout() {
-  const { cart, sessionKey, fetchCart } = useCartStore();
+  const { cart, sessionKey, fetchCart, fetchShippingConfig, shippingConfig, shippingFee, grandTotal } =
+    useCartStore();
   const navigate = useNavigate();
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -53,6 +54,7 @@ export default function Checkout() {
 
   useEffect(() => {
     fetchCart();
+    fetchShippingConfig();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -134,7 +136,7 @@ export default function Checkout() {
             disabled={submitting}
             className="w-full rounded-full bg-maroon-700 py-3 text-sm font-semibold text-white hover:bg-maroon-800 disabled:opacity-60"
           >
-            {submitting ? "Redirecting to secure payment..." : `Pay ${formatZAR(cart.total)} with Payfast`}
+            {submitting ? "Redirecting to secure payment..." : `Pay ${formatZAR(grandTotal())} with Payfast`}
           </button>
 
           <p className="text-center text-xs text-maroon-900/40">
@@ -159,10 +161,24 @@ export default function Checkout() {
               </div>
             ))}
           </div>
-          <div className="mt-4 flex justify-between border-t border-maroon-100 pt-4 font-display text-lg text-maroon-800">
-            <span>Total</span>
-            <span>{formatZAR(cart.total)}</span>
+          <div className="mt-4 space-y-1 border-t border-maroon-100 pt-4 text-sm text-maroon-900/70">
+            <div className="flex justify-between">
+              <span>Subtotal</span>
+              <span>{formatZAR(cart.total)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span>Shipping ({shippingConfig?.courier ?? "Aramex"})</span>
+              <span>{shippingFee() === 0 ? "Free" : formatZAR(shippingFee())}</span>
+            </div>
           </div>
+          <div className="mt-2 flex justify-between border-t border-maroon-100 pt-4 font-display text-lg text-maroon-800">
+            <span>Total</span>
+            <span>{formatZAR(grandTotal())}</span>
+          </div>
+          <p className="mt-3 text-xs text-maroon-900/50">
+            Delivered nationwide via {shippingConfig?.courier ?? "Aramex"}
+            {shippingConfig ? `, ${shippingConfig.estimated_delivery}` : ""}.
+          </p>
           <Link to="/cart" className="mt-4 block text-center text-sm text-maroon-700 hover:underline">
             Edit cart
           </Link>

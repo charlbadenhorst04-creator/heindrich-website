@@ -28,11 +28,16 @@ class Order(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     province: Mapped[str] = mapped_column(String(120))
     phone: Mapped[str] = mapped_column(String(30), default="")
 
+    subtotal_amount: Mapped[float] = mapped_column(Numeric(10, 2))
+    shipping_fee: Mapped[float] = mapped_column(Numeric(10, 2), default=0)
     total_amount: Mapped[float] = mapped_column(Numeric(10, 2))
     status: Mapped[OrderStatus] = mapped_column(
         Enum(OrderStatus, name="order_status"), default=OrderStatus.PENDING
     )
     payfast_payment_id: Mapped[str] = mapped_column(String(100), default="")
+
+    courier: Mapped[str] = mapped_column(String(50), default="Aramex")
+    tracking_number: Mapped[str] = mapped_column(String(100), default="")
 
     items: Mapped[list["OrderItem"]] = relationship(
         back_populates="order", cascade="all, delete-orphan"

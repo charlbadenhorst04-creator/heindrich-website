@@ -1,7 +1,7 @@
 import { create } from "zustand";
 
 import { api } from "../api/client";
-import type { CartResponse } from "../api/types";
+import type { CartResponse, ShippingConfig } from "../api/types";
 
 const SESSION_KEY_STORAGE = "meravo_session_key";
 
@@ -24,7 +24,11 @@ interface CartState {
   sessionKey: string;
   cart: CartResponse | null;
   isLoading: boolean;
+  shippingConfig: ShippingConfig | null;
   fetchCart: () => Promise<void>;
+  fetchShippingConfig: () => Promise<void>;
+  shippingFee: () => number;
+  grandTotal: () => number;
   addItem: (productId: string, quantity?: number) => Promise<void>;
   updateItem: (itemId: string, quantity: number) => Promise<void>;
   removeItem: (itemId: string) => Promise<void>;
@@ -35,6 +39,7 @@ export const useCartStore = create<CartState>((set, get) => ({
   sessionKey: getOrCreateSessionKey(),
   cart: null,
   isLoading: false,
+  shippingConfig: null,
 
   fetchCart: async () => {
     set({ isLoading: true });
@@ -44,6 +49,25 @@ export const useCartStore = create<CartState>((set, get) => ({
     } finally {
       set({ isLoading: false });
     }
+  },
+
+  fetchShippingConfig: async () => {
+    if (get().shippingConfig) return;
+    const shippingConfig = await api.getShippingConfig();
+    set({ shippingConfig });
+  },
+
+  shippingFee: () => {
+    const { cart, shippingConfig } = get();
+    if (!cart || !shippingConfig) return 0;
+    if (cart.total >= shippingConfig.free_shipping_threshold) return 0;
+    return shippingConfig.flat_fee;
+  },
+
+  grandTotal: () => {
+    const { cart } = get();
+    if (!cart) return 0;
+    return cart.total + get().shippingFee();
   },
 
   addItem: async (productId, quantity = 1) => {

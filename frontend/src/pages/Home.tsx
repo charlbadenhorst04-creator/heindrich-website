@@ -4,13 +4,18 @@ import { Link } from "react-router-dom";
 
 import { api } from "../api/client";
 import ProductCard from "../components/ProductCard";
+import ProductCardSkeleton from "../components/ProductCardSkeleton";
 import type { Product } from "../api/types";
 
 export default function Home() {
   const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    api.listProducts({ page: 1 }).then((res) => setProducts(res.items.slice(0, 8)));
+    api
+      .listProducts({ page: 1 })
+      .then((res) => setProducts(res.items.slice(0, 8)))
+      .finally(() => setLoading(false));
   }, []);
 
   return (
@@ -84,9 +89,9 @@ export default function Home() {
         </div>
 
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 sm:gap-6 lg:grid-cols-4">
-          {products.map((product, i) => (
-            <ProductCard key={product.id} product={product} index={i} />
-          ))}
+          {loading
+            ? Array.from({ length: 8 }).map((_, i) => <ProductCardSkeleton key={i} />)
+            : products.map((product, i) => <ProductCard key={product.id} product={product} index={i} />)}
         </div>
       </section>
 

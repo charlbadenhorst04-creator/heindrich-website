@@ -27,8 +27,8 @@ export default function About() {
         transition={{ delay: 0.2 }}
         className="mt-4 text-lg leading-relaxed text-maroon-900/70"
       >
-        We're based in South Africa and ship nationwide, with secure payments and
-        a support team that's just a WhatsApp message away.
+        We're based in South Africa and ship nationwide with Aramex, with secure
+        payments and a support team that's just a WhatsApp message away.
       </motion.p>
     </div>
   );

@@ -35,8 +35,12 @@ class OrderRead(BaseModel):
     city: str
     postal_code: str
     province: str
+    subtotal_amount: float
+    shipping_fee: float
     total_amount: float
     status: OrderStatus
+    courier: str
+    tracking_number: str
     items: list[OrderItemRead]
 
 
