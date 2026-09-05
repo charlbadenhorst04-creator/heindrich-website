@@ -10,6 +10,7 @@
     "lint": "eslint ."
   },
   "dependencies": {
+    "@netlify/database": "^2.0.1",
     "axios": "^1.7.9",
     "framer-motion": "^11.15.0",
     "react": "^18.3.1",
@@ -18,6 +19,8 @@
     "zustand": "^5.0.2"
   },
   "devDependencies": {
+    "@netlify/functions": "^6.0.0",
+    "@types/node": "^22.10.0",
     "@types/react": "^18.3.18",
     "@types/react-dom": "^18.3.5",
     "@vitejs/plugin-react": "^4.3.4",

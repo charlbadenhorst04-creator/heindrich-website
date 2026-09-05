@@ -15,6 +15,9 @@ frontend/.vite/
 frontend/tsconfig.tsbuildinfo
 npm-debug.log*
 
+## Netlify
+.netlify/
+
 ## Env
 .env
 .env.*
