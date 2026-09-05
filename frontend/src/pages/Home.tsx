@@ -5,6 +5,7 @@ import { Link } from "react-router-dom";
 import { api } from "../api/client";
 import ProductCard from "../components/ProductCard";
 import ProductCardSkeleton from "../components/ProductCardSkeleton";
+import ProductShowcase from "../components/ProductShowcase";
 import type { Product } from "../api/types";
 
 export default function Home() {
@@ -76,6 +77,8 @@ export default function Home() {
           transition={{ duration: 7, repeat: Infinity, ease: "easeInOut" }}
         />
       </section>
+
+      <ProductShowcase />
 
       <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
         <div className="mb-10 flex items-end justify-between">
