@@ -16,7 +16,8 @@ COPY alembic.ini ./
 COPY alembic ./alembic
 COPY docker-entrypoint.sh ./
 
-RUN pip install --upgrade pip && pip install . && chmod +x docker-entrypoint.sh
+RUN sed -i 's/\r$//' docker-entrypoint.sh \
+    && pip install --upgrade pip && pip install . && chmod +x docker-entrypoint.sh
 
 EXPOSE 8000
 
