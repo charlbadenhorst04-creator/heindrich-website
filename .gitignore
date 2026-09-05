@@ -1,0 +1,32 @@
+## Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+## Node / Frontend
+node_modules/
+frontend/dist/
+frontend/.vite/
+frontend/tsconfig.tsbuildinfo
+npm-debug.log*
+
+## Env
+.env
+.env.*
+!.env.example
+
+## Docker
+*.pid
+
+## OS / editors
+.DS_Store
+.vscode/
+.idea/
+
+## Postgres data volume (bind mount fallback, if ever used)
+pgdata/
