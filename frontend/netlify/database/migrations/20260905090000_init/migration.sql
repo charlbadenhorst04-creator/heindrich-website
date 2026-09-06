@@ -123,7 +123,7 @@ INSERT INTO products (id, name, slug, description, price, image_url, stock, cate
     'kids-hobby-horse-unicorn-galloping-sounds',
     'A playful hobby horse with realistic galloping and neighing sounds - hours of active, imaginative outdoor or indoor play.',
     349.00,
-    'https://picsum.photos/seed/kids-hobby-horse-unicorn-galloping-sounds/600/600',
+    '/images/products/kids-hobby-horse-unicorn-galloping-sounds.png',
     35,
     '11111111-0000-0000-0000-000000000003'
   ),

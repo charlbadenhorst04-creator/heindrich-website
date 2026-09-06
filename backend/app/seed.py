@@ -71,6 +71,7 @@ PRODUCTS = [
         "price": 349.00,
         "category_slug": "kids-toys",
         "stock": 35,
+        "image_url": "/images/products/kids-hobby-horse-unicorn-galloping-sounds.png",
     },
     {
         "name": "Kids Mountain Bike Seat with Dual Handle",

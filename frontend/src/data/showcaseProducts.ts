@@ -36,7 +36,7 @@ export const showcaseProducts: ShowcaseProduct[] = [
     id: "hobby-horse-unicorn",
     name: "Kids Hobby Horse or Unicorn with Galloping Neighing Sounds",
     price: 349.0,
-    imageUrl: "https://picsum.photos/seed/kids-hobby-horse-unicorn-galloping-sounds/600/600",
+    imageUrl: "/images/products/kids-hobby-horse-unicorn-galloping-sounds.png",
   },
   {
     id: "mountain-bike-seat",
