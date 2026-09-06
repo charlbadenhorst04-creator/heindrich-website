@@ -7,6 +7,9 @@ import { useCartStore } from "../store/cartStore";
 import type { Product } from "../api/types";
 import { formatZAR } from "../utils/format";
 import { useToast } from "../components/ToastProvider";
+import ProductViewer360 from "../components/ProductViewer360";
+import ProductExplainerVideo from "../components/ProductExplainerVideo";
+import { productVideos } from "../data/productVideos";
 
 export default function ProductDetail() {
   const { slug } = useParams<{ slug: string }>();
@@ -54,21 +57,12 @@ export default function ProductDetail() {
 
       <div className="mt-6 grid grid-cols-1 gap-10 lg:grid-cols-2">
         <motion.div
+          key={product.slug}
           initial={{ opacity: 0, scale: 0.96 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.4 }}
-          className="overflow-hidden rounded-3xl bg-blush-100"
         >
-          <motion.img
-            key={product.slug}
-            src={product.image_url}
-            alt={product.name}
-            className="aspect-square w-full object-cover"
-            initial={{ rotate: -12, scale: 1.1, opacity: 0 }}
-            animate={{ rotate: 0, scale: 1, opacity: 1 }}
-            transition={{ duration: 0.6, ease: "easeOut" }}
-            whileHover={{ rotate: 360 }}
-          />
+          <ProductViewer360 images={[product.image_url]} alt={product.name} />
         </motion.div>
 
         <motion.div
@@ -116,6 +110,18 @@ export default function ProductDetail() {
             </motion.button>
           </div>
         </motion.div>
+      </div>
+
+      <div className="mt-16">
+        <h2 className="font-display text-2xl text-maroon-800">See it in action</h2>
+        <div className="mt-6 max-w-2xl">
+          <ProductExplainerVideo
+            productName={product.name}
+            videoUrl={productVideos[product.slug]?.videoUrl}
+            posterUrl={productVideos[product.slug]?.posterUrl}
+            bullets={productVideos[product.slug]?.bullets}
+          />
+        </div>
       </div>
     </div>
   );

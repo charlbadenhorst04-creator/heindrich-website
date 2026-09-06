@@ -2,6 +2,7 @@ import { create } from "zustand";
 
 import { api } from "../api/client";
 import type { CartResponse, ShippingConfig } from "../api/types";
+import { useMascotStore } from "./mascotStore";
 
 const SESSION_KEY_STORAGE = "meravo_session_key";
 
@@ -73,6 +74,7 @@ export const useCartStore = create<CartState>((set, get) => ({
   addItem: async (productId, quantity = 1) => {
     const cart = await api.addToCart(get().sessionKey, productId, quantity);
     set({ cart });
+    useMascotStore.getState().celebrate();
   },
 
   updateItem: async (itemId, quantity) => {

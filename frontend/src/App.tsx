@@ -2,6 +2,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { Route, Routes, useLocation } from "react-router-dom";
 
 import Footer from "./components/Footer";
+import MascotAssistant from "./components/MascotAssistant";
 import Navbar from "./components/Navbar";
 import ScrollToTop from "./components/ScrollToTop";
 import { ToastProvider } from "./components/ToastProvider";
@@ -47,6 +48,7 @@ export default function App() {
           </AnimatePresence>
         </main>
         <Footer />
+        <MascotAssistant />
       </div>
     </ToastProvider>
   );
