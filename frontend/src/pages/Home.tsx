@@ -6,6 +6,7 @@ import { api } from "../api/client";
 import ProductCard from "../components/ProductCard";
 import ProductCardSkeleton from "../components/ProductCardSkeleton";
 import ProductShowcase from "../components/ProductShowcase";
+import Mascot from "../components/Mascot";
 import type { Product } from "../api/types";
 
 export default function Home() {
@@ -76,6 +77,8 @@ export default function Home() {
           animate={{ scale: [1, 1.2, 1] }}
           transition={{ duration: 7, repeat: Infinity, ease: "easeInOut" }}
         />
+
+        <Mascot className="absolute bottom-0 right-2 hidden h-56 w-56 sm:block sm:h-64 sm:w-64 lg:right-10 lg:h-80 lg:w-80" />
       </section>
 
       <ProductShowcase />

@@ -49,8 +49,8 @@ export default function ShowcaseCard({
             loading="lazy"
             onError={() => setImageFailed(true)}
             className="h-full w-full object-cover"
-            whileHover={{ scale: 1.08 }}
-            transition={{ duration: 0.5, ease: "easeOut" }}
+            whileHover={{ scale: 1.08, rotate: 360 }}
+            transition={{ scale: { duration: 0.5, ease: "easeOut" }, rotate: { duration: 0.9, ease: "easeInOut" } }}
           />
         )}
       </div>

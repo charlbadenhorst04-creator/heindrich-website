@@ -59,7 +59,16 @@ export default function ProductDetail() {
           transition={{ duration: 0.4 }}
           className="overflow-hidden rounded-3xl bg-blush-100"
         >
-          <img src={product.image_url} alt={product.name} className="aspect-square w-full object-cover" />
+          <motion.img
+            key={product.slug}
+            src={product.image_url}
+            alt={product.name}
+            className="aspect-square w-full object-cover"
+            initial={{ rotate: -12, scale: 1.1, opacity: 0 }}
+            animate={{ rotate: 0, scale: 1, opacity: 1 }}
+            transition={{ duration: 0.6, ease: "easeOut" }}
+            whileHover={{ rotate: 360 }}
+          />
         </motion.div>
 
         <motion.div
