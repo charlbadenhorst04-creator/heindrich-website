@@ -83,7 +83,7 @@ INSERT INTO products (id, name, slug, description, price, image_url, stock, cate
     '101-piece-magnetic-precision-screwdriver-set',
     'A complete 101-piece precision screwdriver set with magnetic bits and a sturdy storage rack - built for electronics, appliance and everyday repairs.',
     499.00,
-    'https://picsum.photos/seed/101-piece-magnetic-precision-screwdriver-set/600/600',
+    '/images/products/101-piece-magnetic-precision-screwdriver-set.png',
     50,
     '11111111-0000-0000-0000-000000000001'
   ),
@@ -93,7 +93,7 @@ INSERT INTO products (id, name, slug, description, price, image_url, stock, cate
     'car-vacuum-cleaner',
     'Compact, strong-suction handheld vacuum cleaner designed for quick interior car cleanups - crumbs, dust and debris, gone in minutes.',
     499.00,
-    'https://picsum.photos/seed/car-vacuum-cleaner/600/600',
+    '/images/products/car-vacuum-cleaner.png',
     40,
     '11111111-0000-0000-0000-000000000002'
   ),
@@ -103,7 +103,7 @@ INSERT INTO products (id, name, slug, description, price, image_url, stock, cate
     'interactive-plush-lion-hand-puppet',
     'A soft, huggable lion hand puppet that brings storytime to life - perfect for imaginative play and bonding time with little ones.',
     129.00,
-    'https://picsum.photos/seed/interactive-plush-lion-hand-puppet/600/600',
+    '/images/products/interactive-plush-lion-hand-puppet.png',
     80,
     '11111111-0000-0000-0000-000000000003'
   ),
@@ -113,7 +113,7 @@ INSERT INTO products (id, name, slug, description, price, image_url, stock, cate
     'kids-drawing-tablet',
     'An LCD writing and drawing tablet for kids - screen-free, reusable, and great for sparking creativity on the go.',
     299.00,
-    'https://picsum.photos/seed/kids-drawing-tablet/600/600',
+    '/images/products/kids-drawing-tablet.png',
     60,
     '11111111-0000-0000-0000-000000000003'
   ),
@@ -133,7 +133,7 @@ INSERT INTO products (id, name, slug, description, price, image_url, stock, cate
     'kids-mountain-bike-seat-dual-handle',
     'A secure, comfortable rear bike seat with dual handles, so little riders can safely join the family adventure on the trail.',
     1199.00,
-    'https://picsum.photos/seed/kids-mountain-bike-seat-dual-handle/600/600',
+    '/images/products/kids-mountain-bike-seat-dual-handle.png',
     20,
     '11111111-0000-0000-0000-000000000003'
   ),
@@ -143,7 +143,7 @@ INSERT INTO products (id, name, slug, description, price, image_url, stock, cate
     'white-shoe-cleaner-restore-refresh-shine',
     'A dedicated whitening cream for sneakers and white shoes - restores, refreshes and shines in just a few wipes.',
     92.00,
-    'https://picsum.photos/seed/white-shoe-cleaner-restore-refresh-shine/600/600',
+    '/images/products/white-shoe-cleaner-restore-refresh-shine.png',
     100,
     '11111111-0000-0000-0000-000000000004'
   );

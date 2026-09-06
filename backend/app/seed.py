@@ -2,8 +2,9 @@
 
 Run with: python -m app.seed
 
-Product photos use placeholder images keyed by slug - swap `image_url`
-for real product photography via the admin/API whenever it's ready.
+Product photos live in frontend/public/images/products/ and are served
+by the frontend's nginx as static files. Products without a photo yet
+fall back to a picsum.photos placeholder.
 """
 
 import asyncio
@@ -30,6 +31,7 @@ PRODUCTS = [
         "price": 499.00,
         "category_slug": "tools-hardware",
         "stock": 50,
+        "image_url": "/images/products/101-piece-magnetic-precision-screwdriver-set.png",
     },
     {
         "name": "Car Vacuum Cleaner",
@@ -39,6 +41,7 @@ PRODUCTS = [
         "price": 499.00,
         "category_slug": "automotive",
         "stock": 40,
+        "image_url": "/images/products/car-vacuum-cleaner.png",
     },
     {
         "name": "Interactive Plush Lion Hand Puppet",
@@ -48,6 +51,7 @@ PRODUCTS = [
         "price": 129.00,
         "category_slug": "kids-toys",
         "stock": 80,
+        "image_url": "/images/products/interactive-plush-lion-hand-puppet.png",
     },
     {
         "name": "Kids Drawing Tablet",
@@ -57,6 +61,7 @@ PRODUCTS = [
         "price": 299.00,
         "category_slug": "kids-toys",
         "stock": 60,
+        "image_url": "/images/products/kids-drawing-tablet.png",
     },
     {
         "name": "Kids Hobby Horse or Unicorn with Galloping Neighing Sounds",
@@ -75,6 +80,7 @@ PRODUCTS = [
         "price": 1199.00,
         "category_slug": "kids-toys",
         "stock": 20,
+        "image_url": "/images/products/kids-mountain-bike-seat-dual-handle.png",
     },
     {
         "name": "White Shoe Cleaner - Restore. Refresh. Shine.",
@@ -84,6 +90,7 @@ PRODUCTS = [
         "price": 92.00,
         "category_slug": "home-care",
         "stock": 100,
+        "image_url": "/images/products/white-shoe-cleaner-restore-refresh-shine.png",
     },
 ]
 
@@ -105,10 +112,17 @@ async def seed() -> None:
             slug_to_category[cat["slug"]] = existing
 
         for prod in PRODUCTS:
+            image_url = prod.get(
+                "image_url", f"https://picsum.photos/seed/{prod['slug']}/600/600"
+            )
             existing = (
                 await db.execute(select(Product).where(Product.slug == prod["slug"]))
             ).scalar_one_or_none()
             if existing is not None:
+                # Keep photos in sync on re-seed, without touching stock/price
+                # that may have since been changed via the app.
+                if existing.image_url != image_url:
+                    existing.image_url = image_url
                 continue
 
             db.add(
@@ -118,7 +132,7 @@ async def seed() -> None:
                     description=prod["description"],
                     price=prod["price"],
                     stock=prod["stock"],
-                    image_url=f"https://picsum.photos/seed/{prod['slug']}/600/600",
+                    image_url=image_url,
                     category_id=slug_to_category[prod["category_slug"]].id,
                 )
             )
