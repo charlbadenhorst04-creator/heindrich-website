@@ -13,6 +13,21 @@ export default async (req: Request, context: Context) => {
     if (!quantity || quantity <= 0) {
       return errorResponse("A positive quantity is required");
     }
+
+    // Stock is enforced server-side; the UI's quantity controls can be
+    // bypassed by calling the API directly.
+    const rows = await database.sql`
+      SELECT p.name, p.stock FROM cart_items ci JOIN products p ON p.id = ci.product_id
+      WHERE ci.id = ${itemId}
+    `;
+    if (rows.length === 0) {
+      return errorResponse("Cart item not found", 404);
+    }
+    const stock = Number(rows[0].stock);
+    if (quantity > stock) {
+      return errorResponse(`Only ${stock} of ${rows[0].name} left in stock`, 409);
+    }
+
     await database.sql`UPDATE cart_items SET quantity = ${quantity} WHERE id = ${itemId}`;
   } else if (req.method === "DELETE") {
     await database.sql`DELETE FROM cart_items WHERE id = ${itemId}`;

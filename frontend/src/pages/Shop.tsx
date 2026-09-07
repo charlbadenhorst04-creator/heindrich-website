@@ -14,7 +14,7 @@ export default function Shop() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    api.listCategories().then(setCategories);
+    api.listCategories().then(setCategories).catch(() => setCategories([]));
   }, []);
 
   useEffect(() => {
@@ -23,6 +23,7 @@ export default function Shop() {
       api
         .listProducts({ q: query || undefined, category: activeCategory, page: 1 })
         .then((res) => setProducts(res.items))
+        .catch(() => setProducts([]))
         .finally(() => setLoading(false));
     }, 250);
     return () => clearTimeout(handle);

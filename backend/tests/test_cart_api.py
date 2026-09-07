@@ -109,3 +109,63 @@ async def test_remove_nonexistent_item_404s(client, unique_session_key):
         f"/api/cart/{unique_session_key}/items/00000000-0000-0000-0000-000000000000"
     )
     assert resp.status_code == 404
+
+
+async def test_cannot_add_more_than_available_stock(
+    client, unique_session_key, seeded_products
+):
+    """The quantity controls in the UI can be bypassed by calling the API
+    directly, so stock has to be enforced server-side."""
+    product_a = seeded_products["product_a"]  # stock: 10
+
+    resp = await client.post(
+        f"/api/cart/{unique_session_key}/items",
+        json={"product_id": str(product_a.id), "quantity": product_a.stock + 1},
+    )
+    assert resp.status_code == 409
+    assert "left in stock" in resp.json()["detail"]
+
+    cart = await client.get(f"/api/cart/{unique_session_key}")
+    assert cart.json()["items"] == []
+
+
+async def test_repeated_adds_cannot_exceed_stock_in_aggregate(
+    client, unique_session_key, seeded_products
+):
+    product_a = seeded_products["product_a"]  # stock: 10
+
+    first = await client.post(
+        f"/api/cart/{unique_session_key}/items",
+        json={"product_id": str(product_a.id), "quantity": product_a.stock},
+    )
+    assert first.status_code == 200
+
+    second = await client.post(
+        f"/api/cart/{unique_session_key}/items",
+        json={"product_id": str(product_a.id), "quantity": 1},
+    )
+    assert second.status_code == 409
+
+    cart = await client.get(f"/api/cart/{unique_session_key}")
+    assert cart.json()["items"][0]["quantity"] == product_a.stock
+
+
+async def test_cannot_update_item_beyond_available_stock(
+    client, unique_session_key, seeded_products
+):
+    product_a = seeded_products["product_a"]  # stock: 10
+
+    add = await client.post(
+        f"/api/cart/{unique_session_key}/items",
+        json={"product_id": str(product_a.id), "quantity": 1},
+    )
+    item_id = add.json()["items"][0]["id"]
+
+    resp = await client.patch(
+        f"/api/cart/{unique_session_key}/items/{item_id}",
+        json={"quantity": product_a.stock + 5},
+    )
+    assert resp.status_code == 409
+
+    cart = await client.get(f"/api/cart/{unique_session_key}")
+    assert cart.json()["items"][0]["quantity"] == 1

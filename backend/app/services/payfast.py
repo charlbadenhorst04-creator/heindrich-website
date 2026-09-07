@@ -10,6 +10,7 @@ Docs: https://developers.payfast.co.za/docs
 """
 
 import hashlib
+import hmac
 import uuid
 from urllib.parse import quote_plus
 
@@ -22,15 +23,41 @@ def _encode(value: str) -> str:
     return quote_plus(str(value)).replace("%20", "+")
 
 
-def build_signature(fields: dict[str, str], passphrase: str = "") -> str:
+def build_signature(fields: dict[str, str], passphrase: str = "", *, skip_empty: bool = True) -> str:
     """Payfast requires an MD5 signature over the fields in the exact
     order they are set (excluding an already-present `signature` key),
-    URL-encoded the same way PHP's urlencode() does."""
-    pairs = [f"{key}={_encode(value)}" for key, value in fields.items() if key != "signature" and value != ""]
+    URL-encoded the same way PHP's urlencode() does.
+
+    Payfast's own samples differ between the two directions: the checkout
+    example omits empty fields, while the ITN example signs every field
+    as received. `skip_empty` selects which convention to use.
+    """
+    pairs = [
+        f"{key}={_encode(value)}"
+        for key, value in fields.items()
+        if key != "signature" and not (skip_empty and value == "")
+    ]
     query = "&".join(pairs)
     if passphrase:
         query += f"&passphrase={_encode(passphrase)}"
     return hashlib.md5(query.encode("utf-8")).hexdigest()
+
+
+def signature_matches(data: dict[str, str], passphrase: str = "") -> bool:
+    """Validate an incoming ITN signature.
+
+    Accepts either Payfast convention (see `build_signature`) so a
+    genuine notification is never rejected - and so an order is never
+    left unpaid - over a formatting difference. Authenticity itself is
+    established by posting the payload back to Payfast for confirmation.
+    """
+    received = data.get("signature", "")
+    if not received:
+        return False
+    return any(
+        hmac.compare_digest(received, build_signature(data, passphrase, skip_empty=skip_empty))
+        for skip_empty in (False, True)
+    )
 
 
 def build_checkout_fields(*, order_id: uuid.UUID, amount: float, item_name: str, customer_email: str, customer_name: str) -> dict[str, str]:

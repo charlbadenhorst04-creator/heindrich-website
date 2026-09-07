@@ -167,3 +167,39 @@ test("checkout computes shipping fee and matches Payfast amount field", async ()
   assert.equal(orderData.total_amount, expectedTotal);
   assert.equal(checkoutData.fields.amount, expectedTotal.toFixed(2));
 });
+
+test("stock is enforced server-side when adding to the cart", async () => {
+  const res = await productsFn(new Request("http://x/api/products"));
+  const product = (await res.json()).items[0];
+  const sessionKey = `test-stock-${Date.now()}-${Math.random()}`;
+
+  const tooMany = await cartItemsFn(
+    new Request(`http://x/api/cart/${sessionKey}/items`, {
+      method: "POST",
+      body: JSON.stringify({ product_id: product.id, quantity: product.stock + 1 }),
+    }),
+    { params: { sessionKey } } as never,
+  );
+  assert.equal(tooMany.status, 409);
+  assert.match((await tooMany.json()).detail, /left in stock/);
+
+  // Adding up to the limit is still fine...
+  const atLimit = await cartItemsFn(
+    new Request(`http://x/api/cart/${sessionKey}/items`, {
+      method: "POST",
+      body: JSON.stringify({ product_id: product.id, quantity: product.stock }),
+    }),
+    { params: { sessionKey } } as never,
+  );
+  assert.equal(atLimit.status, 200);
+
+  // ...but a second add that pushes the total over it is refused.
+  const overLimit = await cartItemsFn(
+    new Request(`http://x/api/cart/${sessionKey}/items`, {
+      method: "POST",
+      body: JSON.stringify({ product_id: product.id, quantity: 1 }),
+    }),
+    { params: { sessionKey } } as never,
+  );
+  assert.equal(overLimit.status, 409);
+});

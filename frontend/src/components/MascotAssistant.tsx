@@ -1,8 +1,14 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
+import { useLocation } from "react-router-dom";
 
 import { mascotTips } from "../data/mascotTips";
 import { useMascotStore } from "../store/mascotStore";
+
+// M steps aside on the pages where a mis-tap costs the shopper money -
+// on a narrow screen a floating corner widget can sit right on top of
+// the pay/place-order button.
+const HIDDEN_ON = ["/checkout", "/order-success"];
 
 const STORAGE_KEY = "meravo_mascot_minimized";
 
@@ -12,6 +18,7 @@ const STORAGE_KEY = "meravo_mascot_minimized";
 export default function MascotAssistant({ tips = mascotTips }: { tips?: string[] }) {
   const celebrationTick = useMascotStore((s) => s.celebrationTick);
   const isFirstTick = useRef(true);
+  const { pathname } = useLocation();
 
   const [minimized, setMinimized] = useState<boolean>(() => {
     try {
@@ -64,6 +71,8 @@ export default function MascotAssistant({ tips = mascotTips }: { tips?: string[]
     return () => clearTimeout(t);
   }, [showBubble]);
 
+  if (HIDDEN_ON.includes(pathname)) return null;
+
   if (minimized) {
     return (
       <motion.button
@@ -114,7 +123,7 @@ export default function MascotAssistant({ tips = mascotTips }: { tips?: string[]
           onMouseEnter={openBubble}
           onMouseLeave={() => setShowBubble(false)}
           aria-label="M, your shopping assistant - tap for a tip"
-          className="block h-16 w-16 cursor-pointer sm:h-[72px] sm:w-[72px]"
+          className="relative block h-16 w-16 cursor-pointer sm:h-[72px] sm:w-[72px]"
           animate={
             celebrating
               ? { y: [0, -18, 0, -10, 0], rotate: [0, -8, 8, -8, 0] }

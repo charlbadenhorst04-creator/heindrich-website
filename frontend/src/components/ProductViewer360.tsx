@@ -12,6 +12,7 @@ interface ProductViewer360Props {
 
 const AUTOPLAY_MS = 90;
 const PX_PER_FRAME = 6;
+const springConfig = { stiffness: 150, damping: 18, mass: 0.6 };
 
 export default function ProductViewer360({ images, alt, className = "" }: ProductViewer360Props) {
   const frames = images.filter(Boolean);
@@ -36,13 +37,17 @@ function SequenceViewer({ frames, alt, className }: { frames: string[]; alt: str
   const dragStartFrame = useRef(0);
 
   // Warm the browser cache for every frame up front so drag-scrubbing
-  // doesn't stutter waiting on network requests.
+  // doesn't stutter waiting on network requests. Keyed on the joined
+  // sources rather than the array itself: callers pass a fresh array
+  // literal on every render, which would otherwise re-run this on each
+  // animation frame of the idle spin.
+  const framesKey = frames.join("|");
   useEffect(() => {
-    frames.forEach((src) => {
+    framesKey.split("|").forEach((src) => {
       const img = new Image();
       img.src = src;
     });
-  }, [frames]);
+  }, [framesKey]);
 
   // Slow idle rotation until the visitor first touches the viewer.
   useEffect(() => {
@@ -100,7 +105,6 @@ function TiltViewer({ image, alt, className }: { image: string; alt: string; cla
   const [hasInteracted, setHasInteracted] = useState(false);
   const x = useMotionValue(0);
   const y = useMotionValue(0);
-  const springConfig = { stiffness: 150, damping: 18, mass: 0.6 };
   const rotateX = useSpring(useTransform(y, [-0.5, 0.5], [10, -10]), springConfig);
   const rotateY = useSpring(useTransform(x, [-0.5, 0.5], [-10, 10]), springConfig);
   const scale = useSpring(1, springConfig);

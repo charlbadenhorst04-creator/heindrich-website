@@ -17,6 +17,7 @@ export default function Home() {
     api
       .listProducts({ page: 1 })
       .then((res) => setProducts(res.items.slice(0, 8)))
+      .catch(() => setProducts([]))
       .finally(() => setLoading(false));
   }, []);
 

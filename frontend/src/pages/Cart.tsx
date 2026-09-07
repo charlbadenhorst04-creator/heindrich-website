@@ -4,17 +4,36 @@ import { Link, useNavigate } from "react-router-dom";
 
 import { useCartStore } from "../store/cartStore";
 import { formatZAR } from "../utils/format";
+import { errorMessage } from "../utils/errors";
+import { useToast } from "../components/ToastProvider";
 
 export default function Cart() {
   const { cart, fetchCart, updateItem, removeItem, fetchShippingConfig, shippingConfig, shippingFee, grandTotal } =
     useCartStore();
   const navigate = useNavigate();
+  const { showToast } = useToast();
 
   useEffect(() => {
     fetchCart();
     fetchShippingConfig();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const changeQuantity = async (itemId: string, quantity: number) => {
+    try {
+      await updateItem(itemId, quantity);
+    } catch (err) {
+      showToast(errorMessage(err, "Couldn't update that item. Please try again."), "error");
+    }
+  };
+
+  const removeFromCart = async (itemId: string) => {
+    try {
+      await removeItem(itemId);
+    } catch (err) {
+      showToast(errorMessage(err, "Couldn't remove that item. Please try again."), "error");
+    }
+  };
 
   const isEmpty = !cart || cart.items.length === 0;
 
@@ -57,15 +76,19 @@ export default function Cart() {
 
                   <div className="flex items-center rounded-full border border-maroon-200">
                     <button
-                      onClick={() => updateItem(item.id, Math.max(1, item.quantity - 1))}
-                      className="px-3 py-1 text-maroon-700"
+                      onClick={() => changeQuantity(item.id, Math.max(1, item.quantity - 1))}
+                      className="px-3 py-1 text-maroon-700 disabled:opacity-40"
+                      disabled={item.quantity <= 1}
+                      aria-label="Decrease quantity"
                     >
                       -
                     </button>
                     <span className="w-6 text-center text-sm">{item.quantity}</span>
                     <button
-                      onClick={() => updateItem(item.id, item.quantity + 1)}
-                      className="px-3 py-1 text-maroon-700"
+                      onClick={() => changeQuantity(item.id, item.quantity + 1)}
+                      className="px-3 py-1 text-maroon-700 disabled:opacity-40"
+                      disabled={item.quantity >= item.product.stock}
+                      aria-label="Increase quantity"
                     >
                       +
                     </button>
@@ -76,7 +99,7 @@ export default function Cart() {
                   </p>
 
                   <button
-                    onClick={() => removeItem(item.id)}
+                    onClick={() => removeFromCart(item.id)}
                     className="text-maroon-900/40 hover:text-maroon-700"
                     aria-label="Remove item"
                   >

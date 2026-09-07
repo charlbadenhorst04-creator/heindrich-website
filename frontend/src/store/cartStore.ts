@@ -15,17 +15,12 @@ function getOrCreateSessionKey(): string {
   return key;
 }
 
-export function resetSessionKey(): string {
-  const key = crypto.randomUUID();
-  localStorage.setItem(SESSION_KEY_STORAGE, key);
-  return key;
-}
-
 interface CartState {
   sessionKey: string;
   cart: CartResponse | null;
   isLoading: boolean;
   shippingConfig: ShippingConfig | null;
+  startNewSession: () => void;
   fetchCart: () => Promise<void>;
   fetchShippingConfig: () => Promise<void>;
   shippingFee: () => number;
@@ -42,11 +37,28 @@ export const useCartStore = create<CartState>((set, get) => ({
   isLoading: false,
   shippingConfig: null,
 
+  // Called once an order is placed, so the shopper starts from an empty
+  // cart. The new key has to land in the store as well as localStorage -
+  // updating only localStorage would leave this (already-created) store
+  // holding the old key, and the next add-to-cart would reopen the cart
+  // that was just ordered.
+  startNewSession: () => {
+    const key = crypto.randomUUID();
+    localStorage.setItem(SESSION_KEY_STORAGE, key);
+    set({ sessionKey: key, cart: null });
+  },
+
+  // The two fetches below run on mount as background loads, so they
+  // absorb their own failures rather than surfacing an unhandled
+  // rejection. The mutating actions further down deliberately still
+  // throw, so the UI can tell the shopper what went wrong.
   fetchCart: async () => {
     set({ isLoading: true });
     try {
       const cart = await api.getCart(get().sessionKey);
       set({ cart });
+    } catch {
+      // Leave the last known cart in place; the next action will retry.
     } finally {
       set({ isLoading: false });
     }
@@ -54,8 +66,12 @@ export const useCartStore = create<CartState>((set, get) => ({
 
   fetchShippingConfig: async () => {
     if (get().shippingConfig) return;
-    const shippingConfig = await api.getShippingConfig();
-    set({ shippingConfig });
+    try {
+      const shippingConfig = await api.getShippingConfig();
+      set({ shippingConfig });
+    } catch {
+      // Falls back to the "Aramex" copy already rendered in the UI.
+    }
   },
 
   shippingFee: () => {

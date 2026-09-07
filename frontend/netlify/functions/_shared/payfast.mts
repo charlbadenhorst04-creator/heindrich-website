@@ -19,15 +19,36 @@ function phpStyleEncode(value: string): string {
   return encodeURIComponent(value).replace(/%20/g, "+");
 }
 
-export function buildSignature(fields: Record<string, string>, passphrase = ""): string {
+/**
+ * Payfast's own samples differ between the two directions: the checkout
+ * example omits empty fields, while the ITN example signs every field as
+ * received. `skipEmpty` selects which convention to use.
+ */
+export function buildSignature(
+  fields: Record<string, string>,
+  passphrase = "",
+  skipEmpty = true,
+): string {
   const pairs = Object.entries(fields)
-    .filter(([key, value]) => key !== "signature" && value !== "")
+    .filter(([key, value]) => key !== "signature" && !(skipEmpty && value === ""))
     .map(([key, value]) => `${key}=${phpStyleEncode(value)}`);
   let query = pairs.join("&");
   if (passphrase) {
     query += `&passphrase=${phpStyleEncode(passphrase)}`;
   }
   return crypto.createHash("md5").update(query, "utf-8").digest("hex");
+}
+
+/**
+ * Validates an incoming ITN signature, accepting either Payfast
+ * convention so a genuine notification is never rejected - and an order
+ * never left unpaid - over a formatting difference. Authenticity itself
+ * is established by posting the payload back to Payfast.
+ */
+export function signatureMatches(data: Record<string, string>, passphrase = ""): boolean {
+  const received = data.signature ?? "";
+  if (!received) return false;
+  return [false, true].some((skipEmpty) => received === buildSignature(data, passphrase, skipEmpty));
 }
 
 export function buildCheckoutFields(opts: {

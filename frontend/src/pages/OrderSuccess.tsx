@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 
 import { api } from "../api/client";
-import { resetSessionKey } from "../store/cartStore";
+import { useCartStore } from "../store/cartStore";
 import type { Order } from "../api/types";
 import { formatZAR } from "../utils/format";
 
@@ -11,13 +11,14 @@ export default function OrderSuccess() {
   const [searchParams] = useSearchParams();
   const orderId = searchParams.get("m_payment_id") ?? searchParams.get("order_id");
   const [order, setOrder] = useState<Order | null>(null);
+  const startNewSession = useCartStore((s) => s.startNewSession);
 
   useEffect(() => {
     if (orderId) {
       api.getOrder(orderId).then(setOrder).catch(() => setOrder(null));
     }
-    resetSessionKey();
-  }, [orderId]);
+    startNewSession();
+  }, [orderId, startNewSession]);
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-24 text-center sm:px-6 lg:px-8">

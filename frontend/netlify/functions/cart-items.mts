@@ -15,7 +15,7 @@ export default async (req: Request, context: Context) => {
 
   const database = db();
 
-  const product = await database.sql`SELECT id FROM products WHERE id = ${productId} AND is_active = true`;
+  const product = await database.sql`SELECT id, name, stock FROM products WHERE id = ${productId} AND is_active = true`;
   if (product.length === 0) {
     return errorResponse("Product not found", 404);
   }
@@ -26,9 +26,17 @@ export default async (req: Request, context: Context) => {
     SELECT id, quantity FROM cart_items WHERE cart_id = ${cartId} AND product_id = ${productId}
   `;
 
+  // Enforced here, on the server, because the quantity controls in the UI
+  // can be bypassed by calling the API directly.
+  const requested = quantity + (existing.length > 0 ? Number(existing[0].quantity) : 0);
+  const stock = Number(product[0].stock);
+  if (requested > stock) {
+    return errorResponse(`Only ${stock} of ${product[0].name} left in stock`, 409);
+  }
+
   if (existing.length > 0) {
     await database.sql`
-      UPDATE cart_items SET quantity = ${existing[0].quantity + quantity} WHERE id = ${existing[0].id}
+      UPDATE cart_items SET quantity = ${requested} WHERE id = ${existing[0].id}
     `;
   } else {
     const id = crypto.randomUUID();

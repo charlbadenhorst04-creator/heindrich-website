@@ -6,6 +6,7 @@ import { api } from "../api/client";
 import { useCartStore } from "../store/cartStore";
 import type { Product } from "../api/types";
 import { formatZAR } from "../utils/format";
+import { errorMessage } from "../utils/errors";
 import { useToast } from "../components/ToastProvider";
 import ProductViewer360 from "../components/ProductViewer360";
 import ProductExplainerVideo from "../components/ProductExplainerVideo";
@@ -14,6 +15,7 @@ import { productVideos } from "../data/productVideos";
 export default function ProductDetail() {
   const { slug } = useParams<{ slug: string }>();
   const [product, setProduct] = useState<Product | null>(null);
+  const [notFound, setNotFound] = useState(false);
   const [quantity, setQuantity] = useState(1);
   const [adding, setAdding] = useState(false);
   const [added, setAdded] = useState(false);
@@ -23,8 +25,26 @@ export default function ProductDetail() {
   useEffect(() => {
     if (!slug) return;
     setProduct(null);
-    api.getProduct(slug).then(setProduct);
+    setNotFound(false);
+    api.getProduct(slug).then(setProduct).catch(() => setNotFound(true));
   }, [slug]);
+
+  if (notFound) {
+    return (
+      <div className="mx-auto max-w-7xl px-4 py-24 text-center">
+        <h1 className="font-display text-2xl text-maroon-800">We couldn't find that product</h1>
+        <p className="mt-2 text-maroon-900/60">
+          It may have sold out or been removed from the range.
+        </p>
+        <Link
+          to="/shop"
+          className="mt-8 inline-block rounded-full bg-maroon-700 px-8 py-3 text-sm font-semibold text-white hover:bg-maroon-800"
+        >
+          Back to Shop
+        </Link>
+      </div>
+    );
+  }
 
   if (!product) {
     return (
@@ -39,8 +59,8 @@ export default function ProductDetail() {
       setAdded(true);
       showToast(`${product.name} added to cart`);
       setTimeout(() => setAdded(false), 1800);
-    } catch {
-      showToast("Couldn't add that to your cart. Please try again.", "error");
+    } catch (err) {
+      showToast(errorMessage(err, "Couldn't add that to your cart. Please try again."), "error");
     } finally {
       setAdding(false);
     }

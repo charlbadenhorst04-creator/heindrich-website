@@ -12,6 +12,16 @@ from app.schemas.cart import CartItemCreate, CartItemUpdate, CartRead
 router = APIRouter(prefix="/cart", tags=["cart"])
 
 
+def _ensure_in_stock(product: Product, requested_quantity: int) -> None:
+    """Stock is enforced here, on the server, because the quantity
+    controls in the UI can be bypassed by calling the API directly."""
+    if requested_quantity > product.stock:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Only {product.stock} of {product.name} left in stock",
+        )
+
+
 async def _get_or_create_cart(db: DbSession, session_key: str) -> Cart:
     stmt = (
         select(Cart)
@@ -42,8 +52,11 @@ async def add_item(session_key: str, payload: CartItemCreate, db: DbSession) -> 
         raise HTTPException(status_code=404, detail="Product not found")
 
     existing_item = next((i for i in cart.items if i.product_id == payload.product_id), None)
+    requested = payload.quantity + (existing_item.quantity if existing_item else 0)
+    _ensure_in_stock(product, requested)
+
     if existing_item is not None:
-        existing_item.quantity += payload.quantity
+        existing_item.quantity = requested
     else:
         cart.items.append(CartItem(product_id=payload.product_id, quantity=payload.quantity))
 
@@ -59,6 +72,11 @@ async def update_item(
     item = next((i for i in cart.items if i.id == item_id), None)
     if item is None:
         raise HTTPException(status_code=404, detail="Cart item not found")
+
+    product = await db.get(Product, item.product_id)
+    if product is None:
+        raise HTTPException(status_code=404, detail="Product not found")
+    _ensure_in_stock(product, payload.quantity)
 
     item.quantity = payload.quantity
     await db.commit()

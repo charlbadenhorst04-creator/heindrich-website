@@ -87,9 +87,23 @@ PCI-compliant infrastructure. Payfast then:
    there is nothing to configure in this codebase besides your merchant
    ID/key/passphrase (`PAYFAST_*` env vars).
 
-To go live: create a Payfast merchant account, link your bank account there,
-set `PAYFAST_MODE=live` and your real `PAYFAST_MERCHANT_ID` /
-`PAYFAST_MERCHANT_KEY` / `PAYFAST_PASSPHRASE` in `.env`.
+### Going live — checklist
+
+1. Create a Payfast merchant account and link your bank account there.
+2. In `.env`, set `PAYFAST_MODE=live` plus your real
+   `PAYFAST_MERCHANT_ID` / `PAYFAST_MERCHANT_KEY` / `PAYFAST_PASSPHRASE`.
+3. **Point the three Payfast URLs at your real domain**, not `localhost`:
+   `PAYFAST_RETURN_URL`, `PAYFAST_CANCEL_URL` and — most importantly —
+   `PAYFAST_NOTIFY_URL`. Payfast calls the notify URL from its own
+   servers, so it must be publicly reachable over the internet. If it is
+   left as `localhost`, customers can still pay but **no order will ever
+   be marked paid**, because the confirmation can never arrive.
+4. Set a long random `SECRET_KEY` (it signs auth tokens; the default is a
+   placeholder and must not be used in production).
+5. Set a strong `POSTGRES_PASSWORD` and keep `.env` out of version
+   control (it is already listed in `.gitignore`).
+6. Serve the site over HTTPS, and add your live domain to
+   `BACKEND_CORS_ORIGINS`.
 
 ## Scaling & maintainability notes
 
@@ -104,9 +118,16 @@ set `PAYFAST_MODE=live` and your real `PAYFAST_MERCHANT_ID` /
 - Both services are independently containerized and stateless (session
   state lives in Postgres via a `session_key`, not in server memory), so
   either can be horizontally scaled behind a load balancer as traffic grows.
-- Product photography: the seed data ships with placeholder images
-  (`image_url` per product). Replace them with real product photography
-  by updating that column — no code changes required.
+- Product photography lives in `frontend/public/images/products/`, named
+  after each product's slug, and is referenced by the `image_url` column
+  (see `backend/app/seed.py`). To swap a photo, drop a new file in that
+  folder under the same name — no code changes required. Re-running the
+  seed updates `image_url` on existing products, so photo changes don't
+  need a database reset.
+- Stock is enforced server-side on every cart add/update (the UI's
+  quantity controls can be bypassed by calling the API directly), and is
+  drawn down once, when Payfast confirms payment — not at checkout, so an
+  abandoned payment never eats stock.
 
 ## Local development (without Docker)
 
