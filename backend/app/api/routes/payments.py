@@ -10,6 +10,7 @@ from app.models.order import Order, OrderStatus
 from app.models.product import Product
 from app.services.email import send_order_emails
 from app.services.payfast import signature_matches, verify_itn_with_payfast
+from app.services.whatsapp import send_order_whatsapp
 from app.core.config import settings
 
 router = APIRouter(prefix="/payments", tags=["payments"])
@@ -86,6 +87,7 @@ async def payfast_notify(
         # already marked paid does not email anyone a second time.
         await db.refresh(order, attribute_names=["items"])
         background_tasks.add_task(send_order_emails, order)
+        background_tasks.add_task(send_order_whatsapp, order)
 
     return Response(status_code=200, content="OK")
 

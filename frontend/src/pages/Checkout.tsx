@@ -146,7 +146,7 @@ export default function Checkout() {
             </Field>
           </div>
 
-          <Field label="Phone">
+          <Field label="Phone (for delivery and WhatsApp order updates)">
             <input maxLength={30} value={form.phone} onChange={handleChange("phone")} className="input" placeholder="e.g. 067 157 2670" />
           </Field>
 

@@ -164,6 +164,98 @@ If the mail server is unreachable or the password is wrong, the order is
 still recorded and marked paid — the failure is logged (`docker compose
 logs backend`) and never costs a sale.
 
+## WhatsApp order confirmation
+
+When a payment is confirmed, the customer can also get a WhatsApp message
+with their order reference, total and courier — sent to the phone number
+they typed at checkout (local numbers like `082 123 4567` are converted to
+international form automatically). It is off until `WHATSAPP_PROVIDER` is
+set, and an order with no phone number is simply skipped.
+
+### The one rule that shapes all of this
+
+**WhatsApp does not let a business send a free-form message to someone who
+has not messaged it in the last 24 hours.** An order confirmation is
+business-initiated, so it must be sent as a **message template approved in
+advance by Meta**. This is Meta's rule and applies whichever provider you
+use — there is no way around it, and anything claiming otherwise (the
+unofficial "WhatsApp Web" automation libraries) risks the number being
+banned, which for a shop whose number is its customer line is not worth it.
+
+So: create the template, wait for approval (usually a few hours, sometimes
+a day), then switch it on.
+
+### The template to submit
+
+Category **Utility**. The code sends exactly four values, in this order, so
+the body must use `{{1}}`–`{{4}}` exactly like this:
+
+```
+Hi {{1}}! Thanks for shopping with MERAVO. Your order {{2}} for {{3}} is
+confirmed and we're getting it ready. We'll send your {{4}} tracking
+number as soon as it ships.
+```
+
+| Placeholder | Value sent      | Example                                |
+|-------------|-----------------|----------------------------------------|
+| `{{1}}`     | First name      | `Thandi`                               |
+| `{{2}}`     | Order reference | `3f2a1c9e-7b44-4d1a-9e60-2c5f8a1b0d33` |
+| `{{3}}`     | Total paid      | `R 598.00`                             |
+| `{{4}}`     | Courier         | `Aramex`                               |
+
+If you reword the template, keep the same four placeholders in the same
+order, or change `template_parameters()` in
+`backend/app/services/whatsapp.py` to match.
+
+### Option A — Meta WhatsApp Cloud API (no middleman, free tier)
+
+1. Create a Meta Business account and a WhatsApp Business app at
+   https://developers.facebook.com.
+2. Add a phone number for the API. It must be a number **not currently
+   active on the normal WhatsApp or WhatsApp Business app** — so not the
+   067 157 2670 handset if that is in daily use. A second SIM is the usual
+   answer.
+3. Submit the template above under **Messaging → Message templates**.
+4. Once approved, put the phone number ID and a permanent access token in
+   `.env`:
+
+```
+WHATSAPP_PROVIDER=meta
+WHATSAPP_PHONE_NUMBER_ID=123456789012345
+WHATSAPP_ACCESS_TOKEN=EAAG...
+WHATSAPP_TEMPLATE_NAME=order_confirmation
+WHATSAPP_TEMPLATE_LANGUAGE=en
+```
+
+### Option B — Twilio (quickest to see working)
+
+Twilio has a sandbox you can test in today, before any Meta approval: you
+message a join code to their sandbox number from your own phone, and it can
+then message you back in plain text.
+
+```
+WHATSAPP_PROVIDER=twilio
+TWILIO_ACCOUNT_SID=AC...
+TWILIO_AUTH_TOKEN=...
+TWILIO_WHATSAPP_FROM=+14155238886
+TWILIO_CONTENT_SID=
+```
+
+Leaving `TWILIO_CONTENT_SID` empty sends plain text, which **only works in
+the sandbox and only to numbers that have joined it**. For real customers,
+register the template with Twilio and set `TWILIO_CONTENT_SID` to its id.
+
+### Notes
+
+- Like email, this is triggered by Payfast's confirmation callback, so it
+  needs `PAYFAST_NOTIFY_URL` to be publicly reachable — nothing sends on a
+  localhost setup.
+- A failure never costs a sale: the order stays paid and the reason is
+  logged (`docker compose logs backend`). An unapproved template or expired
+  token shows up there with the provider's own explanation.
+- Messages cost money per conversation on both providers. Check current
+  pricing before switching it on for a busy shop.
+
 ## Seeing incoming orders
 
 You can also check orders directly in the database at any time:

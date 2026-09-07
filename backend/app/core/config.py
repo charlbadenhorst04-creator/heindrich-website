@@ -47,6 +47,32 @@ class Settings(BaseSettings):
     SHOP_CONTACT_PHONE: str = "067 157 2670"
     STORE_URL: str = "http://localhost:8090"
 
+    # WhatsApp order confirmation. Empty WHATSAPP_PROVIDER disables it.
+    # "meta"   - WhatsApp Cloud API, direct from Meta
+    # "twilio" - Twilio's WhatsApp API
+    WHATSAPP_PROVIDER: str = ""
+    # Local numbers are typed without a country code ("082 123 4567"), so
+    # this is what a leading 0 is replaced with. 27 = South Africa.
+    WHATSAPP_COUNTRY_CODE: str = "27"
+
+    # Meta WhatsApp Cloud API
+    WHATSAPP_PHONE_NUMBER_ID: str = ""
+    WHATSAPP_ACCESS_TOKEN: str = ""
+    WHATSAPP_API_VERSION: str = "v21.0"
+    # Business-initiated messages must use a template Meta has approved;
+    # free-form text is only allowed inside a 24-hour reply window, which an
+    # order confirmation is not.
+    WHATSAPP_TEMPLATE_NAME: str = "order_confirmation"
+    WHATSAPP_TEMPLATE_LANGUAGE: str = "en"
+
+    # Twilio
+    TWILIO_ACCOUNT_SID: str = ""
+    TWILIO_AUTH_TOKEN: str = ""
+    TWILIO_WHATSAPP_FROM: str = ""
+    # Twilio's approved template ("content") id. Left empty, the message is
+    # sent as plain text, which only works in the Twilio sandbox.
+    TWILIO_CONTENT_SID: str = ""
+
     @property
     def cors_origins(self) -> list[str]:
         return [origin.strip() for origin in self.BACKEND_CORS_ORIGINS.split(",") if origin.strip()]
@@ -62,6 +88,10 @@ class Settings(BaseSettings):
     @property
     def email_enabled(self) -> bool:
         return bool(self.SMTP_HOST)
+
+    @property
+    def whatsapp_enabled(self) -> bool:
+        return self.WHATSAPP_PROVIDER.strip().lower() in {"meta", "twilio"}
 
     @property
     def mail_from_address(self) -> str:
