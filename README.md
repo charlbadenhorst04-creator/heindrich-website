@@ -115,12 +115,58 @@ PCI-compliant infrastructure. Payfast then:
 6. Serve the site over HTTPS, and add your live domain to
    `BACKEND_CORS_ORIGINS`.
 
+## Order notification emails
+
+The moment Payfast confirms a payment, two emails go out:
+
+- **To the shop owner** (`SHOP_OWNER_EMAIL`, default
+  `Heinrichcdoman@gmail.com`) — what was bought, what was paid, and the
+  customer's name, email, phone and delivery address, so the order can be
+  packed and shipped straight from the inbox. Hitting reply goes to the
+  customer.
+- **To the customer** — a receipt with their order reference, items,
+  totals, delivery address and courier. Replying reaches the shop.
+
+Nothing is emailed for an unpaid order, so abandoned checkouts don't fill
+the inbox, and a Payfast retry of the same confirmation doesn't send twice.
+
+### Turning it on
+
+Sending is **off** until `SMTP_HOST` is set — local and sandbox work needs
+no mail server. To send from the shop's Gmail address, put this in `.env`:
+
+```
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USERNAME=Heinrichcdoman@gmail.com
+SMTP_PASSWORD=your-16-character-app-password
+SMTP_USE_TLS=true
+SHOP_OWNER_EMAIL=Heinrichcdoman@gmail.com
+STORE_URL=https://your-live-domain.co.za
+```
+
+Gmail will **not** accept your normal password here. You need an *App
+password*:
+
+1. Turn on 2-Step Verification: https://myaccount.google.com/security
+2. Create an app password: https://myaccount.google.com/apppasswords
+3. Paste the 16 characters into `SMTP_PASSWORD`.
+
+Then `docker compose up --build`.
+
+> **This depends on `PAYFAST_NOTIFY_URL` being publicly reachable.** Emails
+> are triggered by Payfast's confirmation callback, so on a local setup
+> where the notify URL is `localhost`, orders never reach paid and no email
+> is ever sent — the same condition described in the go-live checklist
+> above. Test emails on the deployed site, not on your laptop.
+
+If the mail server is unreachable or the password is wrong, the order is
+still recorded and marked paid — the failure is logged (`docker compose
+logs backend`) and never costs a sale.
+
 ## Seeing incoming orders
 
-There is **no automatic email** to you or the customer when an order is
-placed — sending mail needs an email provider and credentials, which is a
-decision for the shop owner (see "Not built yet" below). Until that is
-added, check for new orders directly:
+You can also check orders directly in the database at any time:
 
 ```bash
 docker compose exec db psql -U meravo -d meravo -c \
@@ -153,15 +199,14 @@ docker compose exec db psql -U meravo -d meravo -c \
 
 ## Not built yet
 
-Deliberately left out, because each needs a decision or credentials from
-the shop owner rather than a code change:
+Deliberately left out, because each needs a decision from the shop owner
+rather than a code change:
 
-- **Order notification emails** (to the customer and to the shop). Needs an
-  email provider (e.g. SendGrid, Mailgun, or plain SMTP) and a verified
-  sender address. Until this exists, the site does not promise customers an
-  email — it asks them to keep their order reference and get in touch.
 - **An admin dashboard.** Orders and stock are managed with the SQL above,
   or any Postgres GUI.
+- **Automatic tracking-number emails.** Recording a tracking number updates
+  the customer's order page but does not email them; that is a manual
+  message for now.
 - **Customer accounts.** Registration and login endpoints exist
   (`/api/auth/*`) but nothing in the storefront uses them — shopping is
   guest-only via a session key, which is the simpler flow for a small shop.

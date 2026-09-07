@@ -34,15 +34,17 @@ export default function OrderSuccess() {
       </motion.div>
 
       <h1 className="mt-6 font-display text-3xl text-maroon-800">Thank you for your order!</h1>
-      {/* Deliberately does not promise an automatic email - the store sends
-          order updates by hand. Quote the reference below when following up. */}
+      {/* The confirmation email is sent when Payfast confirms the payment,
+          which can land a moment after this page does - hence "on its way"
+          rather than "has been sent". */}
       <p className="mt-2 text-maroon-900/60">
-        We've received your order. Please keep your order reference below — quote it
-        any time you{" "}
+        We've received your order and a confirmation email is on its way
+        {order ? ` to ${order.customer_email}` : ""}. Keep your order reference below and
+        quote it any time you{" "}
         <Link to="/contact" className="text-maroon-700 underline hover:text-maroon-800">
-          get in touch with us
-        </Link>{" "}
-        about this order.
+          get in touch
+        </Link>
+        .
       </p>
 
       {order && (

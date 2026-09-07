@@ -1,13 +1,14 @@
 import uuid
 from decimal import Decimal, InvalidOperation
 
-from fastapi import APIRouter, Request, Response
+from fastapi import APIRouter, BackgroundTasks, Request, Response
 from sqlalchemy import func, select, update
 from sqlalchemy.orm import selectinload
 
 from app.api.deps import DbSession
 from app.models.order import Order, OrderStatus
 from app.models.product import Product
+from app.services.email import send_order_emails
 from app.services.payfast import signature_matches, verify_itn_with_payfast
 from app.core.config import settings
 
@@ -15,7 +16,9 @@ router = APIRouter(prefix="/payments", tags=["payments"])
 
 
 @router.post("/payfast/notify")
-async def payfast_notify(request: Request, db: DbSession) -> Response:
+async def payfast_notify(
+    request: Request, db: DbSession, background_tasks: BackgroundTasks
+) -> Response:
     """Payfast's server-to-server ITN (Instant Transaction Notification).
 
     We must (1) verify the signature, (2) ask Payfast to confirm the
@@ -65,14 +68,24 @@ async def payfast_notify(request: Request, db: DbSession) -> Response:
 
     order.payfast_payment_id = data.get("pf_payment_id", "")
 
+    newly_paid = False
     if payment_complete:
         if not already_paid:
             order.status = OrderStatus.PAID
             await _reduce_stock(db, order)
+            newly_paid = True
     elif not already_paid:
         order.status = OrderStatus.FAILED
 
     await db.commit()
+
+    if newly_paid:
+        # Queued as a background task so the 200 below reaches Payfast
+        # immediately - a slow mail server must not delay the callback.
+        # Guarded by `newly_paid`, so a retried notification for an order
+        # already marked paid does not email anyone a second time.
+        await db.refresh(order, attribute_names=["items"])
+        background_tasks.add_task(send_order_emails, order)
 
     return Response(status_code=200, content="OK")
 

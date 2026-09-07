@@ -42,6 +42,17 @@ services:
       PAYFAST_RETURN_URL: ${PAYFAST_RETURN_URL:-http://localhost:8090/order-success}
       PAYFAST_CANCEL_URL: ${PAYFAST_CANCEL_URL:-http://localhost:8090/cart}
       PAYFAST_NOTIFY_URL: ${PAYFAST_NOTIFY_URL:-http://localhost:${BACKEND_PORT:-8000}/api/payments/payfast/notify}
+      # Order notification email. Leave SMTP_HOST empty to disable sending.
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USERNAME: ${SMTP_USERNAME:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_USE_TLS: ${SMTP_USE_TLS:-true}
+      MAIL_FROM: ${MAIL_FROM:-}
+      MAIL_FROM_NAME: ${MAIL_FROM_NAME:-MERAVO}
+      SHOP_OWNER_EMAIL: ${SHOP_OWNER_EMAIL:-Heinrichcdoman@gmail.com}
+      SHOP_CONTACT_PHONE: ${SHOP_CONTACT_PHONE:-067 157 2670}
+      STORE_URL: ${STORE_URL:-http://localhost:${FRONTEND_PORT:-8090}}
     ports:
       - "${BACKEND_PORT:-8000}:8000"
 

@@ -33,6 +33,20 @@ class Settings(BaseSettings):
     PAYFAST_CANCEL_URL: str = "http://localhost:5173/cart"
     PAYFAST_NOTIFY_URL: str = "http://localhost:8000/api/payments/payfast/notify"
 
+    # Order notification email. Leaving SMTP_HOST empty disables sending
+    # entirely (nothing breaks, a line is logged instead), so local and
+    # sandbox work needs no mail server.
+    SMTP_HOST: str = ""
+    SMTP_PORT: int = 587
+    SMTP_USERNAME: str = ""
+    SMTP_PASSWORD: str = ""
+    SMTP_USE_TLS: bool = True
+    MAIL_FROM: str = ""
+    MAIL_FROM_NAME: str = "MERAVO"
+    SHOP_OWNER_EMAIL: str = "Heinrichcdoman@gmail.com"
+    SHOP_CONTACT_PHONE: str = "067 157 2670"
+    STORE_URL: str = "http://localhost:8090"
+
     @property
     def cors_origins(self) -> list[str]:
         return [origin.strip() for origin in self.BACKEND_CORS_ORIGINS.split(",") if origin.strip()]
@@ -44,6 +58,16 @@ class Settings(BaseSettings):
             if self.PAYFAST_MODE == "live"
             else "https://sandbox.payfast.co.za"
         )
+
+    @property
+    def email_enabled(self) -> bool:
+        return bool(self.SMTP_HOST)
+
+    @property
+    def mail_from_address(self) -> str:
+        """Falls back to the SMTP username, which for Gmail is the address
+        mail is sent from anyway - one less thing to configure wrongly."""
+        return self.MAIL_FROM or self.SMTP_USERNAME
 
     @model_validator(mode="after")
     def _reject_placeholder_secret_in_live_mode(self) -> "Settings":
