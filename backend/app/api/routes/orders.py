@@ -26,6 +26,28 @@ async def checkout(payload: CheckoutRequest, db: DbSession) -> PayfastInitiateRe
     if cart is None or not cart.items:
         raise HTTPException(status_code=400, detail="Cart is empty")
 
+    # Stock is checked when an item goes into the cart, but a cart can sit
+    # for days - the last unit may have sold in the meantime. Re-check here,
+    # at the point of sale, so we never take payment for goods we cannot
+    # ship. Same for a product that has since been de-listed.
+    for item in cart.items:
+        product = item.product
+        if not product.is_active:
+            raise HTTPException(
+                status_code=409,
+                detail=f"{product.name} is no longer available. Please remove it from your cart.",
+            )
+        if product.stock == 0:
+            raise HTTPException(
+                status_code=409,
+                detail=f"{product.name} is out of stock. Please remove it from your cart.",
+            )
+        if item.quantity > product.stock:
+            raise HTTPException(
+                status_code=409,
+                detail=f"Only {product.stock} of {product.name} left in stock",
+            )
+
     subtotal = float(sum(item.product.price * item.quantity for item in cart.items))
     shipping_fee = compute_shipping_fee(subtotal)
     total = subtotal + shipping_fee

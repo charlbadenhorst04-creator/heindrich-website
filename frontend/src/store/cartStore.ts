@@ -23,6 +23,7 @@ interface CartState {
   startNewSession: () => void;
   fetchCart: () => Promise<void>;
   fetchShippingConfig: () => Promise<void>;
+  shippingKnown: () => boolean;
   shippingFee: () => number;
   grandTotal: () => number;
   addItem: (productId: string, quantity?: number) => Promise<void>;
@@ -73,6 +74,12 @@ export const useCartStore = create<CartState>((set, get) => ({
       // Falls back to the "Aramex" copy already rendered in the UI.
     }
   },
+
+  // Whether the shipping rules were actually loaded from the API. Without
+  // this the UI cannot tell "shipping is free" apart from "we don't know
+  // the shipping cost yet", and would quote a total lower than the amount
+  // the backend goes on to charge at Payfast.
+  shippingKnown: () => get().shippingConfig !== null,
 
   shippingFee: () => {
     const { cart, shippingConfig } = get();

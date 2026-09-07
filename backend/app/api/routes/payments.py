@@ -2,7 +2,7 @@ import uuid
 from decimal import Decimal, InvalidOperation
 
 from fastapi import APIRouter, Request, Response
-from sqlalchemy import select
+from sqlalchemy import func, select, update
 from sqlalchemy.orm import selectinload
 
 from app.api.deps import DbSession
@@ -82,8 +82,16 @@ def _to_cents(amount: Decimal) -> int:
 
 
 async def _reduce_stock(db: DbSession, order: Order) -> None:
-    """Draw down stock for a newly-paid order, never below zero."""
+    """Draw down stock for a newly-paid order, never below zero.
+
+    Done as a single UPDATE per item so the subtraction happens inside the
+    database. Reading the stock into Python, subtracting and writing it
+    back would lose one of two decrements if two orders for the same
+    product were confirmed at the same moment.
+    """
     for item in order.items:
-        product = await db.get(Product, item.product_id)
-        if product is not None:
-            product.stock = max(0, product.stock - item.quantity)
+        await db.execute(
+            update(Product)
+            .where(Product.id == item.product_id)
+            .values(stock=func.greatest(Product.stock - item.quantity, 0))
+        )

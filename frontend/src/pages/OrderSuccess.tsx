@@ -34,8 +34,15 @@ export default function OrderSuccess() {
       </motion.div>
 
       <h1 className="mt-6 font-display text-3xl text-maroon-800">Thank you for your order!</h1>
+      {/* Deliberately does not promise an automatic email - the store sends
+          order updates by hand. Quote the reference below when following up. */}
       <p className="mt-2 text-maroon-900/60">
-        We've received your order and will notify you once it's confirmed and shipped.
+        We've received your order. Please keep your order reference below — quote it
+        any time you{" "}
+        <Link to="/contact" className="text-maroon-700 underline hover:text-maroon-800">
+          get in touch with us
+        </Link>{" "}
+        about this order.
       </p>
 
       {order && (
@@ -76,7 +83,7 @@ export default function OrderSuccess() {
               <p className="mt-0.5 text-xs text-maroon-900/60">
                 {order.tracking_number
                   ? `Tracking number: ${order.tracking_number}`
-                  : `You'll receive your ${order.courier} tracking number by email once your order ships.`}
+                  : `Your ${order.courier} tracking number is added here once your order ships.`}
               </p>
             </div>
           </div>

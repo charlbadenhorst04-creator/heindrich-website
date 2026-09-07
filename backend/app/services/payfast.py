@@ -84,11 +84,20 @@ def build_checkout_fields(*, order_id: uuid.UUID, amount: float, item_name: str,
 
 async def verify_itn_with_payfast(raw_body: dict[str, str]) -> bool:
     """Per Payfast's ITN spec, the notify payload must be posted back to
-    Payfast so it can confirm the request genuinely originated from them."""
-    async with httpx.AsyncClient(timeout=10) as client:
-        response = await client.post(
-            f"{settings.payfast_host}/eng/query/validate",
-            data=raw_body,
-            headers={"Content-Type": "application/x-www-form-urlencoded"},
-        )
-        return response.text.strip() == "VALID"
+    Payfast so it can confirm the request genuinely originated from them.
+
+    A network failure here must not raise: an unhandled exception would
+    return a 500, and Payfast treats any non-200 as "retry later" anyway.
+    Returning False keeps that retry behaviour while leaving the order
+    untouched - far safer than marking an unconfirmed payment as paid.
+    """
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            response = await client.post(
+                f"{settings.payfast_host}/eng/query/validate",
+                data=raw_body,
+                headers={"Content-Type": "application/x-www-form-urlencoded"},
+            )
+    except httpx.HTTPError:
+        return False
+    return response.text.strip() == "VALID"

@@ -8,8 +8,17 @@ import { errorMessage } from "../utils/errors";
 import { useToast } from "../components/ToastProvider";
 
 export default function Cart() {
-  const { cart, fetchCart, updateItem, removeItem, fetchShippingConfig, shippingConfig, shippingFee, grandTotal } =
-    useCartStore();
+  const {
+    cart,
+    fetchCart,
+    updateItem,
+    removeItem,
+    fetchShippingConfig,
+    shippingConfig,
+    shippingKnown,
+    shippingFee,
+    grandTotal,
+  } = useCartStore();
   const navigate = useNavigate();
   const { showToast } = useToast();
 
@@ -124,7 +133,13 @@ export default function Cart() {
             </div>
             <div className="mt-2 flex justify-between text-sm text-maroon-900/70">
               <span>Shipping ({shippingConfig?.courier ?? "Aramex"})</span>
-              <span>{shippingFee() === 0 ? "Free" : formatZAR(shippingFee())}</span>
+              <span>
+                {!shippingKnown()
+                  ? "Calculated at checkout"
+                  : shippingFee() === 0
+                    ? "Free"
+                    : formatZAR(shippingFee())}
+              </span>
             </div>
             {shippingConfig && shippingFee() > 0 && (
               <p className="mt-1 text-xs text-maroon-900/40">
@@ -133,7 +148,9 @@ export default function Cart() {
             )}
             <div className="mt-4 flex justify-between border-t border-maroon-100 pt-4 font-display text-lg text-maroon-800">
               <span>Total</span>
-              <span>{formatZAR(grandTotal())}</span>
+              {/* Never quote a total while the shipping rules are unknown -
+                  it would read lower than the amount actually charged. */}
+              <span>{shippingKnown() ? formatZAR(grandTotal()) : `${formatZAR(cart.total)} + shipping`}</span>
             </div>
             <p className="mt-2 flex items-center gap-1.5 text-xs text-maroon-900/50">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>

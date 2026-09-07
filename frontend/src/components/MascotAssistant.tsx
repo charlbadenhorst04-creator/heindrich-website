@@ -112,7 +112,7 @@ export default function MascotAssistant({ tips = mascotTips }: { tips?: string[]
           type="button"
           onClick={() => persistMinimized(true)}
           aria-label="Minimize M"
-          className="absolute -right-1 -top-1 z-10 flex h-5 w-5 items-center justify-center rounded-full bg-white text-[10px] text-[#7C2A38] shadow ring-1 ring-[#F1D9D2] hover:bg-[#F8EFE8]"
+          className="absolute -right-1 -top-1 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-white text-xs text-[#7C2A38] shadow ring-1 ring-[#F1D9D2] hover:bg-[#F8EFE8]"
         >
           ×
         </button>

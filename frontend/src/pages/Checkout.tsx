@@ -5,6 +5,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { api } from "../api/client";
 import { useCartStore } from "../store/cartStore";
 import { formatZAR } from "../utils/format";
+import { errorMessage } from "../utils/errors";
 
 const PROVINCES = [
   "Eastern Cape",
@@ -36,8 +37,17 @@ function submitPayfastForm(actionUrl: string, fields: Record<string, string>) {
 }
 
 export default function Checkout() {
-  const { cart, sessionKey, fetchCart, fetchShippingConfig, shippingConfig, shippingFee, grandTotal } =
-    useCartStore();
+  const {
+    cart,
+    isLoading,
+    sessionKey,
+    fetchCart,
+    fetchShippingConfig,
+    shippingConfig,
+    shippingKnown,
+    shippingFee,
+    grandTotal,
+  } = useCartStore();
   const navigate = useNavigate();
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -49,7 +59,7 @@ export default function Checkout() {
     shipping_address: "",
     city: "",
     postal_code: "",
-    province: PROVINCES[2],
+    province: "",
   });
 
   useEffect(() => {
@@ -75,13 +85,43 @@ export default function Checkout() {
     try {
       const response = await api.checkout({ session_key: sessionKey, ...form });
       submitPayfastForm(response.action_url, response.fields);
-    } catch {
-      setError("Something went wrong preparing your payment. Please try again.");
+    } catch (err) {
+      // Surface what the API actually said - checkout re-checks stock and
+      // availability, so this is often something the shopper can act on
+      // ("Only 1 of X left in stock") rather than a generic failure.
+      setError(errorMessage(err, "Something went wrong preparing your payment. Please try again."));
       setSubmitting(false);
     }
   };
 
-  if (!cart) return null;
+  // The cart load can fail (API unreachable). Without these two states the
+  // page renders as a blank white screen with no way forward.
+  if (!cart) {
+    if (isLoading) {
+      return (
+        <div className="mx-auto max-w-5xl px-4 py-24 text-center text-maroon-900/50 sm:px-6 lg:px-8">
+          Loading your order...
+        </div>
+      );
+    }
+    return (
+      <div className="mx-auto max-w-5xl px-4 py-24 text-center sm:px-6 lg:px-8">
+        <h1 className="font-display text-2xl text-maroon-800">We couldn't load your cart</h1>
+        <p className="mt-2 text-maroon-900/60">
+          Please check your connection and try again.
+        </p>
+        <button
+          onClick={() => {
+            fetchCart();
+            fetchShippingConfig();
+          }}
+          className="mt-6 rounded-full bg-maroon-700 px-8 py-3 text-sm font-semibold text-white hover:bg-maroon-800"
+        >
+          Try again
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-12 sm:px-6 lg:px-8">
@@ -94,32 +134,40 @@ export default function Checkout() {
           onSubmit={handleSubmit}
           className="space-y-4 lg:col-span-2"
         >
+          {/* Each maxLength matches the limit the API enforces, so an
+              over-long value is stopped here rather than bouncing back
+              from the server on the last step of the sale. */}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Field label="Full name">
-              <input required value={form.customer_name} onChange={handleChange("customer_name")} className="input" />
+              <input required maxLength={200} value={form.customer_name} onChange={handleChange("customer_name")} className="input" />
             </Field>
             <Field label="Email">
-              <input required type="email" value={form.customer_email} onChange={handleChange("customer_email")} className="input" />
+              <input required type="email" maxLength={255} value={form.customer_email} onChange={handleChange("customer_email")} className="input" />
             </Field>
           </div>
 
           <Field label="Phone">
-            <input value={form.phone} onChange={handleChange("phone")} className="input" placeholder="e.g. 067 157 2670" />
+            <input maxLength={30} value={form.phone} onChange={handleChange("phone")} className="input" placeholder="e.g. 067 157 2670" />
           </Field>
 
           <Field label="Shipping address">
-            <input required value={form.shipping_address} onChange={handleChange("shipping_address")} className="input" />
+            <input required maxLength={500} value={form.shipping_address} onChange={handleChange("shipping_address")} className="input" />
           </Field>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             <Field label="City">
-              <input required value={form.city} onChange={handleChange("city")} className="input" />
+              <input required maxLength={120} value={form.city} onChange={handleChange("city")} className="input" />
             </Field>
             <Field label="Postal code">
-              <input required value={form.postal_code} onChange={handleChange("postal_code")} className="input" />
+              <input required maxLength={20} value={form.postal_code} onChange={handleChange("postal_code")} className="input" />
             </Field>
             <Field label="Province">
+              {/* Starts unselected: a pre-filled province would quietly ship
+                  to Gauteng for anyone who skips the dropdown. */}
               <select required value={form.province} onChange={handleChange("province")} className="input">
+                <option value="" disabled>
+                  Select province
+                </option>
                 {PROVINCES.map((p) => (
                   <option key={p} value={p}>
                     {p}
@@ -136,7 +184,11 @@ export default function Checkout() {
             disabled={submitting}
             className="w-full rounded-full bg-maroon-700 py-3 text-sm font-semibold text-white hover:bg-maroon-800 disabled:opacity-60"
           >
-            {submitting ? "Redirecting to secure payment..." : `Pay ${formatZAR(grandTotal())} with Payfast`}
+            {submitting
+              ? "Redirecting to secure payment..."
+              : shippingKnown()
+                ? `Pay ${formatZAR(grandTotal())} with Payfast`
+                : "Continue to secure payment"}
           </button>
 
           <p className="text-center text-xs text-maroon-900/40">
@@ -168,12 +220,18 @@ export default function Checkout() {
             </div>
             <div className="flex justify-between">
               <span>Shipping ({shippingConfig?.courier ?? "Aramex"})</span>
-              <span>{shippingFee() === 0 ? "Free" : formatZAR(shippingFee())}</span>
+              <span>
+                {!shippingKnown()
+                  ? "Calculated at payment"
+                  : shippingFee() === 0
+                    ? "Free"
+                    : formatZAR(shippingFee())}
+              </span>
             </div>
           </div>
           <div className="mt-2 flex justify-between border-t border-maroon-100 pt-4 font-display text-lg text-maroon-800">
             <span>Total</span>
-            <span>{formatZAR(grandTotal())}</span>
+            <span>{shippingKnown() ? formatZAR(grandTotal()) : `${formatZAR(cart.total)} + shipping`}</span>
           </div>
           <p className="mt-3 text-xs text-maroon-900/50">
             Delivered nationwide via {shippingConfig?.courier ?? "Aramex"}

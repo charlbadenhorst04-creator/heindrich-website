@@ -26,13 +26,28 @@ export default async (req: Request) => {
   const cartId = await getOrCreateCart(database, sessionKey);
 
   const itemRows = await database.sql`
-    SELECT ci.product_id, ci.quantity, p.name, p.price
+    SELECT ci.product_id, ci.quantity, p.name, p.price, p.stock, p.is_active
     FROM cart_items ci JOIN products p ON p.id = ci.product_id
     WHERE ci.cart_id = ${cartId}
   `;
 
   if (itemRows.length === 0) {
     return errorResponse("Cart is empty");
+  }
+
+  // Mirrors the FastAPI backend: a cart can sit for days after passing the
+  // add-to-cart stock check, so re-check at the point of sale rather than
+  // take payment for goods that cannot be shipped.
+  for (const row of itemRows as any[]) {
+    if (!row.is_active) {
+      return errorResponse(`${row.name} is no longer available. Please remove it from your cart.`, 409);
+    }
+    if (row.stock === 0) {
+      return errorResponse(`${row.name} is out of stock. Please remove it from your cart.`, 409);
+    }
+    if (row.quantity > row.stock) {
+      return errorResponse(`Only ${row.stock} of ${row.name} left in stock`, 409);
+    }
   }
 
   const subtotal = itemRows.reduce((sum: number, row: any) => sum + Number(row.price) * row.quantity, 0);

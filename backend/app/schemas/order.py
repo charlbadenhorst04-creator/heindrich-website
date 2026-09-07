@@ -6,14 +6,21 @@ from app.models.order import OrderStatus
 
 
 class CheckoutRequest(BaseModel):
-    session_key: str
-    customer_email: EmailStr
-    customer_name: str = Field(min_length=1)
-    shipping_address: str = Field(min_length=1)
-    city: str = Field(min_length=1)
-    postal_code: str = Field(min_length=1)
-    province: str = Field(min_length=1)
-    phone: str = ""
+    """Every max_length here mirrors the matching column on `orders`.
+
+    Without them an over-long value reaches PostgreSQL and fails there,
+    which surfaces to the shopper as a 500 on the last step of the sale
+    instead of a field-level validation message.
+    """
+
+    session_key: str = Field(min_length=1, max_length=200)
+    customer_email: EmailStr = Field(max_length=255)
+    customer_name: str = Field(min_length=1, max_length=200)
+    shipping_address: str = Field(min_length=1, max_length=500)
+    city: str = Field(min_length=1, max_length=120)
+    postal_code: str = Field(min_length=1, max_length=20)
+    province: str = Field(min_length=1, max_length=120)
+    phone: str = Field(default="", max_length=30)
 
 
 class OrderItemRead(BaseModel):

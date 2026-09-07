@@ -1,6 +1,14 @@
 from functools import lru_cache
 
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# Values shipped in the source default and in .env.example. They are public,
+# so anything signed with them can be forged by anyone reading the repo.
+PLACEHOLDER_SECRETS = {
+    "insecure-dev-secret-change-me",
+    "change-me-to-a-long-random-string",
+}
 
 
 class Settings(BaseSettings):
@@ -36,6 +44,22 @@ class Settings(BaseSettings):
             if self.PAYFAST_MODE == "live"
             else "https://sandbox.payfast.co.za"
         )
+
+    @model_validator(mode="after")
+    def _reject_placeholder_secret_in_live_mode(self) -> "Settings":
+        """Refuse to start a live store with a secret key anyone can read.
+
+        Deliberately scoped to live mode so local and sandbox work stays
+        zero-config; going live is the moment this has to be real.
+        """
+        if self.PAYFAST_MODE == "live" and self.SECRET_KEY in PLACEHOLDER_SECRETS:
+            raise ValueError(
+                "SECRET_KEY is still set to a placeholder value while "
+                "PAYFAST_MODE=live. Set SECRET_KEY in your .env to a long "
+                "random string before going live - for example, the output "
+                'of: python -c "import secrets; print(secrets.token_urlsafe(48))"'
+            )
+        return self
 
 
 @lru_cache

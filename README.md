@@ -47,11 +47,18 @@ docker compose up --build
 
 - Frontend: http://localhost:8090
 - Backend API: http://localhost:8000/api (interactive docs at http://localhost:8000/docs)
-- Postgres: localhost:5432
 
-If any of these ports are already used by something else on your machine, change
-`FRONTEND_PORT` / `BACKEND_PORT` / `POSTGRES_PORT` in `.env` and re-run
+If either port is already used by something else on your machine, change
+`FRONTEND_PORT` / `BACKEND_PORT` in `.env` and re-run
 `docker compose up --build`.
+
+Postgres is intentionally not published to your machine — the backend reaches
+it over Docker's internal network, so it is never exposed to the outside
+world. To look inside the database:
+
+```bash
+docker compose exec db psql -U meravo -d meravo
+```
 
 On first boot the backend automatically runs Alembic migrations and seeds
 demo categories/products (see `backend/app/seed.py`) so the site isn't
@@ -98,12 +105,66 @@ PCI-compliant infrastructure. Payfast then:
    servers, so it must be publicly reachable over the internet. If it is
    left as `localhost`, customers can still pay but **no order will ever
    be marked paid**, because the confirmation can never arrive.
-4. Set a long random `SECRET_KEY` (it signs auth tokens; the default is a
-   placeholder and must not be used in production).
+4. Set a long random `SECRET_KEY` — for example the output of
+   `python -c "import secrets; print(secrets.token_urlsafe(48))"`. With
+   `PAYFAST_MODE=live` the backend refuses to start while `SECRET_KEY` is
+   still one of the placeholder values, so this cannot be forgotten
+   silently.
 5. Set a strong `POSTGRES_PASSWORD` and keep `.env` out of version
    control (it is already listed in `.gitignore`).
 6. Serve the site over HTTPS, and add your live domain to
    `BACKEND_CORS_ORIGINS`.
+
+## Seeing incoming orders
+
+There is **no automatic email** to you or the customer when an order is
+placed — sending mail needs an email provider and credentials, which is a
+decision for the shop owner (see "Not built yet" below). Until that is
+added, check for new orders directly:
+
+```bash
+docker compose exec db psql -U meravo -d meravo -c \
+  "SELECT created_at, customer_name, customer_email, phone, total_amount, status
+     FROM orders ORDER BY created_at DESC LIMIT 20;"
+```
+
+Only orders with `status = PAID` have actually been paid for. `PENDING`
+means the customer started checkout but Payfast has not confirmed payment
+(they may have abandoned it). Note the status is stored in **capitals** in
+the database (`PENDING`, `PAID`, `FAILED`, `CANCELLED`, `SHIPPED`,
+`COMPLETE`) even though the website shows it in lowercase — SQL below must
+use the capitalised form.
+
+To see what a specific order contained:
+
+```bash
+docker compose exec db psql -U meravo -d meravo -c \
+  "SELECT product_name, quantity, unit_price FROM order_items
+     WHERE order_id = 'PASTE-ORDER-ID-HERE';"
+```
+
+To record a tracking number so it shows on the customer's order page:
+
+```bash
+docker compose exec db psql -U meravo -d meravo -c \
+  "UPDATE orders SET tracking_number = 'AWB123456', status = 'SHIPPED'
+     WHERE id = 'PASTE-ORDER-ID-HERE';"
+```
+
+## Not built yet
+
+Deliberately left out, because each needs a decision or credentials from
+the shop owner rather than a code change:
+
+- **Order notification emails** (to the customer and to the shop). Needs an
+  email provider (e.g. SendGrid, Mailgun, or plain SMTP) and a verified
+  sender address. Until this exists, the site does not promise customers an
+  email — it asks them to keep their order reference and get in touch.
+- **An admin dashboard.** Orders and stock are managed with the SQL above,
+  or any Postgres GUI.
+- **Customer accounts.** Registration and login endpoints exist
+  (`/api/auth/*`) but nothing in the storefront uses them — shopping is
+  guest-only via a session key, which is the simpler flow for a small shop.
 
 ## Scaling & maintainability notes
 
@@ -125,9 +186,12 @@ PCI-compliant infrastructure. Payfast then:
   seed updates `image_url` on existing products, so photo changes don't
   need a database reset.
 - Stock is enforced server-side on every cart add/update (the UI's
-  quantity controls can be bypassed by calling the API directly), and is
-  drawn down once, when Payfast confirms payment — not at checkout, so an
-  abandoned payment never eats stock.
+  quantity controls can be bypassed by calling the API directly), and
+  again at checkout — a cart can sit for days, so the last unit may have
+  sold since it was added. It is drawn down once, when Payfast confirms
+  payment — not at checkout, so an abandoned payment never eats stock.
+- The Shop page loads the catalogue a page at a time with a "Load more"
+  button, so adding products never pushes older ones out of reach.
 
 ## Local development (without Docker)
 

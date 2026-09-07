@@ -60,28 +60,39 @@ export default function Navbar() {
         </div>
 
         <div className="flex items-center gap-4">
-          <Link to="/cart" className="relative flex items-center gap-1 text-maroon-800">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.7}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 3h1.386c.51 0 .955.343 1.087.835l.383 1.437M7.5 14.25a3 3 0 00-3 3h15.75m-12.75-3h11.218c1.121-2.3 1.973-4.68 2.53-7.126a1.13 1.13 0 00-1.18-1.417H5.106M7.5 14.25L5.106 5.272M6.75 20.25a.375.375 0 100 .75.375.375 0 000-.75zm12 0a.375.375 0 100 .75.375.375 0 000-.75z" />
-            </svg>
-            <AnimatePresence>
-              {itemCount() > 0 && (
-                <motion.span
-                  initial={{ scale: 0 }}
-                  animate={{ scale: 1 }}
-                  exit={{ scale: 0 }}
-                  className="absolute -right-2 -top-2 flex h-5 w-5 items-center justify-center rounded-full bg-maroon-600 text-[10px] font-bold text-white"
-                >
-                  {itemCount()}
-                </motion.span>
-              )}
-            </AnimatePresence>
+          {/* The negative margin cancels the padding, so the icon sits
+              exactly where it did while the tappable area grows to a
+              comfortable size on a phone. */}
+          <Link
+            to="/cart"
+            aria-label={itemCount() > 0 ? `Cart, ${itemCount()} items` : "Cart"}
+            className="-m-2 flex items-center p-2 text-maroon-800"
+          >
+            <span className="relative flex">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.7}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 3h1.386c.51 0 .955.343 1.087.835l.383 1.437M7.5 14.25a3 3 0 00-3 3h15.75m-12.75-3h11.218c1.121-2.3 1.973-4.68 2.53-7.126a1.13 1.13 0 00-1.18-1.417H5.106M7.5 14.25L5.106 5.272M6.75 20.25a.375.375 0 100 .75.375.375 0 000-.75zm12 0a.375.375 0 100 .75.375.375 0 000-.75z" />
+              </svg>
+              <AnimatePresence>
+                {itemCount() > 0 && (
+                  <motion.span
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    exit={{ scale: 0 }}
+                    className="absolute -right-2 -top-2 flex h-5 w-5 items-center justify-center rounded-full bg-maroon-600 text-[10px] font-bold text-white"
+                  >
+                    {itemCount()}
+                  </motion.span>
+                )}
+              </AnimatePresence>
+            </span>
           </Link>
 
           <button
-            className="md:hidden text-maroon-800"
+            className="-m-2 p-2 md:hidden text-maroon-800"
             onClick={() => setMenuOpen((v) => !v)}
             aria-label="Toggle menu"
+            aria-expanded={menuOpen}
+            aria-controls="mobile-menu"
           >
             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.7}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5M3.75 17.25h16.5" />
@@ -93,6 +104,7 @@ export default function Navbar() {
       <AnimatePresence>
         {menuOpen && (
           <motion.div
+            id="mobile-menu"
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}

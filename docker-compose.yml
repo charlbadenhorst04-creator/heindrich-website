@@ -8,8 +8,15 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-meravo}
     volumes:
       - meravo_pgdata:/var/lib/postgresql/data
-    ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+    # The database is deliberately NOT published to the host: the backend
+    # reaches it over the internal compose network, and publishing it would
+    # expose Postgres - on a server, to the whole internet - behind whatever
+    # POSTGRES_PASSWORD happens to be set. To inspect it with a GUI, add:
+    #   ports:
+    #     - "${POSTGRES_PORT:-5432}:5432"
+    # or run: docker compose exec db psql -U meravo -d meravo
+    expose:
+      - "5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-meravo}"]
       interval: 5s
