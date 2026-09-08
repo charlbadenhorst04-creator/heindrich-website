@@ -35,6 +35,11 @@ services:
       SECRET_KEY: ${SECRET_KEY:-change-me-to-a-long-random-string}
       ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-60}
       BACKEND_CORS_ORIGINS: ${BACKEND_CORS_ORIGINS:-http://localhost:5173,http://127.0.0.1:5173,http://localhost:8090,http://127.0.0.1:8090}
+      # Swagger/ReDoc publish a full map of the API - off unless asked for.
+      ENABLE_API_DOCS: ${ENABLE_API_DOCS:-false}
+      # Nothing in the storefront signs in; leave the auth routes unmounted.
+      ENABLE_ACCOUNTS: ${ENABLE_ACCOUNTS:-false}
+      RATE_LIMIT_PER_MINUTE: ${RATE_LIMIT_PER_MINUTE:-60}
       PAYFAST_MODE: ${PAYFAST_MODE:-sandbox}
       PAYFAST_MERCHANT_ID: ${PAYFAST_MERCHANT_ID:-10000100}
       PAYFAST_MERCHANT_KEY: ${PAYFAST_MERCHANT_KEY:-46f0cd694581a}
@@ -64,8 +69,13 @@ services:
       TWILIO_AUTH_TOKEN: ${TWILIO_AUTH_TOKEN:-}
       TWILIO_WHATSAPP_FROM: ${TWILIO_WHATSAPP_FROM:-}
       TWILIO_CONTENT_SID: ${TWILIO_CONTENT_SID:-}
+    # Bound to loopback: on a server this keeps the API off the public
+    # internet, where it would otherwise answer on port 8000 bypassing
+    # nginx's security headers entirely. Requests reach it through the
+    # frontend's /api proxy, and Caddy talks to it over the compose network.
+    # http://localhost:8000 still works on your own machine.
     ports:
-      - "${BACKEND_PORT:-8000}:8000"
+      - "127.0.0.1:${BACKEND_PORT:-8000}:8000"
 
   frontend:
     build:
@@ -75,8 +85,11 @@ services:
     restart: unless-stopped
     depends_on:
       - backend
+    # Also loopback-only. In production Caddy terminates HTTPS and reaches
+    # this container over the compose network, so nothing needs to be
+    # published to the outside world.
     ports:
-      - "${FRONTEND_PORT:-8090}:80"
+      - "127.0.0.1:${FRONTEND_PORT:-8090}:80"
 
 volumes:
   meravo_pgdata:

@@ -15,7 +15,9 @@ and a React (TypeScript) frontend, running entirely in Docker.
 | Frontend   | React 18, TypeScript, Vite, Tailwind CSS, Framer Motion   |
 | State      | Zustand (cart), guest session key (no forced login)      |
 | Payments   | Payfast (South African gateway — card, EFT, Instant EFT)  |
-| Infra      | Docker, Docker Compose, Nginx (frontend static + API proxy)|
+| Infra      | Docker, Docker Compose, Nginx (static + API proxy)        |
+| HTTPS      | Caddy, with automatic Let's Encrypt certificates          |
+| Notifications | Order email (SMTP) and WhatsApp (Meta Cloud API or Twilio) |
 
 ## Project structure
 
@@ -46,7 +48,13 @@ docker compose up --build
 ```
 
 - Frontend: http://localhost:8090
-- Backend API: http://localhost:8000/api (interactive docs at http://localhost:8000/docs)
+- Backend API: http://localhost:8000/api
+
+Both are published on `127.0.0.1` only, so they work on your own machine but
+are never reachable from outside it. The interactive API docs (Swagger) are
+off by default, because they publish a complete map of the API; to browse
+them locally, set `ENABLE_API_DOCS=true` in `.env` and restart, then open
+http://localhost:8000/docs.
 
 If either port is already used by something else on your machine, change
 `FRONTEND_PORT` / `BACKEND_PORT` in `.env` and re-run
@@ -94,26 +102,141 @@ PCI-compliant infrastructure. Payfast then:
    there is nothing to configure in this codebase besides your merchant
    ID/key/passphrase (`PAYFAST_*` env vars).
 
-### Going live — checklist
+### Going live — the whole checklist
 
-1. Create a Payfast merchant account and link your bank account there.
-2. In `.env`, set `PAYFAST_MODE=live` plus your real
-   `PAYFAST_MERCHANT_ID` / `PAYFAST_MERCHANT_KEY` / `PAYFAST_PASSPHRASE`.
-3. **Point the three Payfast URLs at your real domain**, not `localhost`:
-   `PAYFAST_RETURN_URL`, `PAYFAST_CANCEL_URL` and — most importantly —
-   `PAYFAST_NOTIFY_URL`. Payfast calls the notify URL from its own
-   servers, so it must be publicly reachable over the internet. If it is
-   left as `localhost`, customers can still pay but **no order will ever
-   be marked paid**, because the confirmation can never arrive.
-4. Set a long random `SECRET_KEY` — for example the output of
-   `python -c "import secrets; print(secrets.token_urlsafe(48))"`. With
-   `PAYFAST_MODE=live` the backend refuses to start while `SECRET_KEY` is
-   still one of the placeholder values, so this cannot be forgotten
-   silently.
-5. Set a strong `POSTGRES_PASSWORD` and keep `.env` out of version
-   control (it is already listed in `.gitignore`).
-6. Serve the site over HTTPS, and add your live domain to
-   `BACKEND_CORS_ORIGINS`.
+Everything below happens on the server that will host the site. Work
+through it in order; the guards described at the end will stop you booting
+if something important is still a placeholder.
+
+**1. Point the domain at the server.** Create an `A` record for your domain
+pointing at the server's public IP, and a second one for `www` so both
+addresses work. Give DNS a few minutes, then check from the server:
+
+```bash
+dig +short your-domain.co.za
+dig +short www.your-domain.co.za
+```
+
+Both must print your server's IP before HTTPS can be issued. If you would
+rather not have a `www` address at all, delete the `www.{$SITE_DOMAIN}`
+block from the `Caddyfile` — left in place without a matching DNS record,
+Caddy keeps retrying a certificate it can never get.
+
+**2. Open only ports 80 and 443** on the server's firewall. Nothing else
+needs to be reachable — the database is never published, and the site and
+API are bound to `127.0.0.1`, so Caddy is the only thing listening publicly.
+
+```bash
+sudo ufw allow 80/tcp && sudo ufw allow 443/tcp && sudo ufw enable
+```
+
+**3. Fill in `.env`.** Start from the example and edit:
+
+```bash
+cp .env.example .env
+```
+
+| Setting | Value |
+|---|---|
+| `SITE_DOMAIN` | `your-domain.co.za` — no `https://`, no trailing slash |
+| `POSTGRES_PASSWORD` | a long random password |
+| `DATABASE_URL` | the same password, e.g. `postgresql+asyncpg://meravo:THAT_PASSWORD@db:5432/meravo` |
+| `SECRET_KEY` | output of `python3 -c "import secrets; print(secrets.token_urlsafe(48))"` |
+| `BACKEND_CORS_ORIGINS` | `https://your-domain.co.za` |
+| `STORE_URL` | `https://your-domain.co.za` |
+| `PAYFAST_MODE` | `live` |
+| `PAYFAST_MERCHANT_ID` / `_KEY` / `_PASSPHRASE` | from your Payfast dashboard |
+| `PAYFAST_RETURN_URL` | `https://your-domain.co.za/order-success` |
+| `PAYFAST_CANCEL_URL` | `https://your-domain.co.za/cart` |
+| `PAYFAST_NOTIFY_URL` | `https://your-domain.co.za/api/payments/payfast/notify` |
+
+`PAYFAST_NOTIFY_URL` is the one people get wrong. Payfast calls it from its
+own servers, so it must be your public domain. Left as `localhost`,
+customers can still pay but **no order is ever marked paid** — and no
+confirmation email or WhatsApp is ever sent, because both are triggered by
+that callback.
+
+**4. Start it with HTTPS:**
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+```
+
+Caddy requests a free Let's Encrypt certificate for `SITE_DOMAIN` on first
+boot and renews it automatically. Watch it happen:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.prod.yml logs -f caddy
+```
+
+**5. Check it.** From your own machine:
+
+```bash
+curl -I https://your-domain.co.za
+```
+
+Expect `HTTP/2 200`, and confirm `http://your-domain.co.za` redirects to
+`https://`. Then open the site, add something to the cart, and go through a
+real checkout with a small amount to confirm the whole loop — payment,
+order marked paid, confirmation email.
+
+**6. Set up backups** before you take real orders — see the next section.
+
+### What the code refuses to let you get wrong
+
+With `PAYFAST_MODE=live`, the backend will not start if:
+
+- `SECRET_KEY` is still a placeholder from the repo,
+- the database password is still `change-me` (or another obvious default),
+- `BACKEND_CORS_ORIGINS` contains a plain `http://` domain, since a live
+  store taking payments must be served over HTTPS.
+
+Each refusal names the setting and what to do. This is deliberate: these
+are silent problems otherwise.
+
+### What is exposed, and what is not
+
+| Thing | Reachable from the internet |
+|---|---|
+| Caddy (ports 80, 443) | yes — this is the site |
+| Storefront + `/api` proxy | only through Caddy |
+| Backend API (port 8000) | no — bound to `127.0.0.1` |
+| PostgreSQL | no — not published at all |
+| Swagger / ReDoc / OpenAPI | no — off unless `ENABLE_API_DOCS=true` |
+| Registration / login endpoints | no — unmounted unless `ENABLE_ACCOUNTS=true` |
+
+Responses carry `X-Content-Type-Options`, `X-Frame-Options`,
+`Referrer-Policy`, `Permissions-Policy`, HSTS (from Caddy) and a Content
+Security Policy. The CSP allows exactly what the site needs — Google Fonts,
+and form submissions to Payfast. **If you ever change the payment provider,
+its domain has to be added to `form-action` in
+`frontend/security-headers.conf`, or checkout will silently stop working.**
+
+Checkout is rate limited to 20 requests a minute per IP, and the account
+routes to 10. Browsing and cart traffic are deliberately not limited:
+mobile networks here put many customers behind one IP, so a shared limit
+would eventually lock real shoppers out of their own carts. The Payfast
+callback is never limited.
+
+### Backups
+
+Orders live in a Docker volume. Take a copy somewhere off the server:
+
+```bash
+docker compose exec -T db pg_dump -U meravo meravo | gzip > meravo-$(date +%F).sql.gz
+```
+
+To restore into an empty database:
+
+```bash
+gunzip -c meravo-2026-09-08.sql.gz | docker compose exec -T db psql -U meravo -d meravo
+```
+
+Worth running daily from cron once you are taking orders:
+
+```
+0 2 * * * cd /path/to/heindrich-website && docker compose exec -T db pg_dump -U meravo meravo | gzip > /backups/meravo-$(date +\%F).sql.gz
+```
 
 ## Order notification emails
 
@@ -299,9 +422,11 @@ rather than a code change:
 - **Automatic tracking-number emails.** Recording a tracking number updates
   the customer's order page but does not email them; that is a manual
   message for now.
-- **Customer accounts.** Registration and login endpoints exist
+- **Customer accounts.** Registration and login are implemented
   (`/api/auth/*`) but nothing in the storefront uses them — shopping is
   guest-only via a session key, which is the simpler flow for a small shop.
+  The routes are therefore left unmounted, so they are not exposed on the
+  internet for nothing; set `ENABLE_ACCOUNTS=true` if you build on them.
 
 ## Scaling & maintainability notes
 

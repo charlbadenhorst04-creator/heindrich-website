@@ -10,6 +10,9 @@ PLACEHOLDER_SECRETS = {
     "change-me-to-a-long-random-string",
 }
 
+# Shipped in .env.example and the compose defaults, so equally public.
+PLACEHOLDER_DB_PASSWORDS = {"change-me", "meravo", "postgres", "password"}
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
@@ -24,6 +27,22 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
 
     BACKEND_CORS_ORIGINS: str = "http://localhost:5173"
+
+    # Swagger/ReDoc publish a complete map of the API, including every
+    # request shape. Off by default so a public deployment does not hand
+    # that out; turn it on locally when you want to browse the API.
+    ENABLE_API_DOCS: bool = False
+
+    # Registration and login exist but no part of the storefront uses them
+    # (shopping is guest-only). Leaving the routes unmounted keeps a public
+    # write endpoint off the internet until accounts are actually wanted.
+    ENABLE_ACCOUNTS: bool = False
+
+    # Scales the per-IP limits in app/core/ratelimit.py, which apply only to
+    # checkout and the account routes. 0 turns limiting off. Browsing and
+    # cart traffic are never limited (shared mobile IPs would collide), and
+    # the Payfast callback is always exempt.
+    RATE_LIMIT_PER_MINUTE: int = 60
 
     PAYFAST_MODE: str = "sandbox"
     PAYFAST_MERCHANT_ID: str = ""
@@ -106,13 +125,35 @@ class Settings(BaseSettings):
         Deliberately scoped to live mode so local and sandbox work stays
         zero-config; going live is the moment this has to be real.
         """
-        if self.PAYFAST_MODE == "live" and self.SECRET_KEY in PLACEHOLDER_SECRETS:
+        if self.PAYFAST_MODE != "live":
+            return self
+
+        if self.SECRET_KEY in PLACEHOLDER_SECRETS:
             raise ValueError(
                 "SECRET_KEY is still set to a placeholder value while "
                 "PAYFAST_MODE=live. Set SECRET_KEY in your .env to a long "
                 "random string before going live - for example, the output "
                 'of: python -c "import secrets; print(secrets.token_urlsafe(48))"'
             )
+
+        # The password sits in the DATABASE_URL, which is the only place the
+        # app sees it.
+        if any(f":{placeholder}@" in self.DATABASE_URL for placeholder in PLACEHOLDER_DB_PASSWORDS):
+            raise ValueError(
+                "POSTGRES_PASSWORD is still a placeholder while "
+                "PAYFAST_MODE=live. Set a strong POSTGRES_PASSWORD in your "
+                ".env (and the matching DATABASE_URL) before going live."
+            )
+
+        if any(
+            origin.startswith("http://") and "localhost" not in origin and "127.0.0.1" not in origin
+            for origin in self.cors_origins
+        ):
+            raise ValueError(
+                "BACKEND_CORS_ORIGINS contains a plain http:// domain while "
+                "PAYFAST_MODE=live. A live store must be served over https."
+            )
+
         return self
 
 

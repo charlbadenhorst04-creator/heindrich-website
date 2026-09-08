@@ -19,6 +19,12 @@ COPY docker-entrypoint.sh ./
 RUN sed -i 's/\r$//' docker-entrypoint.sh \
     && pip install --upgrade pip && pip install . && chmod +x docker-entrypoint.sh
 
+# Run as a normal user, so a flaw in a dependency does not start out with
+# root inside the container.
+RUN useradd --create-home --uid 10001 meravo \
+    && chown -R meravo:meravo /app
+USER meravo
+
 EXPOSE 8000
 
 HEALTHCHECK --interval=15s --timeout=5s --start-period=15s --retries=5 \

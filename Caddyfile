@@ -1,0 +1,33 @@
+# HTTPS for the live site.
+#
+# Caddy obtains and renews a Let's Encrypt certificate for SITE_DOMAIN
+# automatically, and redirects http:// to https:// on its own. It needs
+# ports 80 and 443 open, and SITE_DOMAIN's DNS pointing at this server.
+
+{$SITE_DOMAIN} {
+	encode gzip
+
+	header {
+		# Tell browsers to only ever reach this site over https. A browser
+		# remembers this for a year, so it is set only once the certificate
+		# is working - serving it while https is broken locks people out.
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		# Caddy advertises itself otherwise.
+		-Server
+	}
+
+	# The storefront container serves the site and proxies /api to the
+	# backend. Everything else about the response - caching, CSP, the other
+	# security headers - is set there, in frontend/nginx.conf.
+	reverse_proxy frontend:80
+}
+
+# Send www to the bare domain, so meravo.co.za and www.meravo.co.za both
+# work and the site has one canonical address.
+#
+# This block needs a `www.` DNS record pointing at this server. If you did
+# not create one, delete this block - Caddy will otherwise keep retrying a
+# certificate it cannot obtain and fill the log with errors.
+www.{$SITE_DOMAIN} {
+	redir https://{$SITE_DOMAIN}{uri} permanent
+}

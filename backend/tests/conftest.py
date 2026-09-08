@@ -2,6 +2,14 @@ import os
 
 os.environ.setdefault("SECRET_KEY", "test-secret-key")
 os.environ.setdefault("BACKEND_CORS_ORIGINS", "http://testserver")
+# The account routes are unmounted in a default deployment; mount them here
+# so the code behind them stays covered. test_security_defaults.py asserts
+# the off-by-default behaviour itself.
+os.environ.setdefault("ENABLE_ACCOUNTS", "true")
+# The suite checks out far more often from one address than any shopper
+# would, so the limiter is off here and tested directly in
+# test_security_defaults.py instead.
+os.environ.setdefault("RATE_LIMIT_PER_MINUTE", "0")
 
 import pytest
 import pytest_asyncio

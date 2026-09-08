@@ -1,0 +1,32 @@
+# Production overlay: adds HTTPS in front of the storefront.
+#
+# Use it together with the base file, never on its own:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+#
+# The base file publishes the site only on loopback, so Caddy here is the
+# one thing listening on the public internet.
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      - frontend
+    environment:
+      # No default on purpose: starting without a real domain would ask
+      # Let's Encrypt for a certificate that cannot be issued.
+      SITE_DOMAIN: ${SITE_DOMAIN:?set SITE_DOMAIN in .env, e.g. meravo.co.za}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      # Certificates live here. Keep this volume: losing it means asking
+      # Let's Encrypt for new certificates, which is rate limited.
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  caddy_data:
+  caddy_config:
