@@ -102,6 +102,28 @@ PCI-compliant infrastructure. Payfast then:
    there is nothing to configure in this codebase besides your merchant
    ID/key/passphrase (`PAYFAST_*` env vars).
 
+### Going live — the quick way
+
+On a fresh Ubuntu server, from inside this repository:
+
+```bash
+sudo bash deploy/setup-server.sh meravo.co.za
+```
+
+That installs Docker, writes a `.env` with a freshly generated database
+password and secret key, opens ports 80 and 443, builds everything, and
+waits until `https://meravo.co.za` answers. It checks your DNS first and
+tells you exactly which records to create if it isn't pointing at the
+server yet, and it never overwrites an existing `.env`, so it doubles as
+the redeploy command.
+
+It deliberately starts in **Payfast sandbox mode** — no real money moves
+until you put your live merchant details in `.env` and set
+`PAYFAST_MODE=live`.
+
+The rest of this section is the same thing done by hand, and explains what
+each part is for.
+
 ### Going live — the whole checklist
 
 Everything below happens on the server that will host the site. Work
