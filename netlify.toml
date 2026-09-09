@@ -6,3 +6,41 @@
 
 [build.environment]
   VITE_API_BASE_URL = "/api"
+
+# These mirror frontend/nginx.conf, which only applies to the Docker
+# deployment. Netlify serves the site itself, so the same protections have
+# to be declared here or they simply do not exist on this host.
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    X-Frame-Options = "SAMEORIGIN"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Permissions-Policy = "camera=(), microphone=(), geolocation=(), payment=()"
+    # form-action MUST keep the Payfast hosts: checkout works by POSTing a
+    # signed form to Payfast's hosted page, and dropping them here would
+    # block every payment. style-src needs 'unsafe-inline' because Framer
+    # Motion animates via inline styles; script-src deliberately does not.
+    Content-Security-Policy = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: https:; connect-src 'self'; form-action 'self' https://www.payfast.co.za https://sandbox.payfast.co.za; frame-ancestors 'none'; base-uri 'self'; object-src 'none'"
+
+# Vite fingerprints these filenames with a content hash, so a changed file
+# always arrives under a new name. Safe to cache hard and never revalidate.
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+# Product photos keep a stable filename, so a replaced photo reuses its
+# URL. These must revalidate, or returning shoppers keep seeing the old
+# picture long after it changed.
+[[headers]]
+  for = "/images/*"
+  [headers.values]
+    Cache-Control = "public, max-age=3600, must-revalidate"
+
+# Carts and stock change; never cache an API response.
+[[headers]]
+  for = "/api/*"
+  [headers.values]
+    Cache-Control = "no-store"

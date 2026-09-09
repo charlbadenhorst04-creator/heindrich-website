@@ -37,7 +37,7 @@ export default async (req: Request) => {
     `SELECT p.*, c.id AS c_id, c.name AS c_name, c.slug AS c_slug
      FROM products p JOIN categories c ON c.id = p.category_id
      WHERE ${where}
-     ORDER BY p.created_at DESC
+     ORDER BY p.created_at DESC, p.id
      LIMIT $${listParams.length - 1} OFFSET $${listParams.length}`,
     listParams,
     { rowMode: "object" },
