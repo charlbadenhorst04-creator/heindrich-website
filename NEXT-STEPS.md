@@ -41,11 +41,21 @@ it can take a few seconds. Refresh once if the shop looks empty at first.
 
 ## Step 4 — check it
 
+Open **https://meravo.netlify.app/api/health**.
+
+It is a plain status page that tells you, in words, what is working and
+what is not — no guessing, no logs. It says either *"The shop is ready to
+take orders"* or exactly which setting is missing. Open it any time
+something looks wrong; it is safe to leave up, because it never shows a
+password or a key.
+
+Then check the shop itself:
+
 - Shop page lists 7 products with photos
 - Add one to the cart → cart shows R99 Aramex shipping
 - Checkout → button reads "Pay R … with Payfast"
 
-**If all three work, the store is ready.**
+**If those work, the store is ready.**
 
 ---
 

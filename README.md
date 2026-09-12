@@ -562,6 +562,13 @@ the Netlify UI. The build picks up `netlify.toml` automatically, and the
 first request after a database is connected creates the tables and seeds
 the catalogue by itself (`_shared/schema.mts`).
 
+**`/api/health`** is a status page for whoever is setting this up: open it
+in a browser and it says in plain words whether the database is connected,
+how many products are on sale, whether Payfast is in sandbox or live, and
+whether order emails are on — plus the name of any variable that is
+missing. It reports only whether a setting exists, never its value, so it
+is safe to leave reachable, and a test locks that down.
+
 The two deployments are kept in sync by hand, so a change to one is a
 change to both. Guard rails for that:
 

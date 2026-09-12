@@ -13,19 +13,8 @@
  */
 import nodemailer from "nodemailer";
 
+import { env } from "./env.mts";
 import { ESTIMATED_DELIVERY_DAYS } from "./shipping.mts";
-
-/**
- * Netlify's runtime exposes configuration through its own global; Node
- * (the tests, and `netlify dev`) uses process.env. Read both, and read
- * them per call rather than at import time so configuration can change
- * between tests.
- */
-function env(key: string, fallback = ""): string {
-  const fromNetlify =
-    typeof Netlify !== "undefined" ? Netlify.env.get(key) : undefined;
-  return fromNetlify ?? process.env[key] ?? fallback;
-}
 
 function mailConfig() {
   const host = env("SMTP_HOST");
