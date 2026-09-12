@@ -562,6 +562,13 @@ the Netlify UI. The build picks up `netlify.toml` automatically, and the
 first request after a database is connected creates the tables and seeds
 the catalogue by itself (`_shared/schema.mts`).
 
+The connection string is read from **`DATABASE_URL`**, falling back to
+`NETLIFY_DATABASE_URL` and `NETLIFY_DB_URL` for a database provisioned by
+Netlify's Neon extension. Set by hand, it has to be the plain
+`DATABASE_URL`: `@netlify/database` on its own reads only `NETLIFY_DB_URL`,
+and Netlify reserves the `NETLIFY_` prefix, so a connection string typed in
+under either of those names is silently ignored.
+
 **`/api/health`** is a status page for whoever is setting this up: open it
 in a browser and it says in plain words whether the database is connected,
 how many products are on sale, whether Payfast is in sandbox or live, and

@@ -1,9 +1,46 @@
 import { getDatabase } from "@netlify/database";
 
+import { env } from "./env.mts";
 import { ensureSchema } from "./schema.mts";
 
+/**
+ * Names this deployment will accept a Postgres connection string under.
+ *
+ * @netlify/database only reads NETLIFY_DB_URL by itself, and Netlify
+ * reserves the whole NETLIFY_ prefix for variables its own extensions
+ * write - so a connection string added by hand under either of those
+ * names is silently ignored, and the shop comes up with no database and
+ * no explanation. DATABASE_URL is a plain name anyone can set in the
+ * dashboard, and is what the documentation now tells people to use. The
+ * two NETLIFY_ names stay supported so a database provisioned by the Neon
+ * extension keeps working without any change here.
+ */
+const CONNECTION_STRING_VARIABLES = [
+  "DATABASE_URL",
+  "NETLIFY_DATABASE_URL",
+  "NETLIFY_DB_URL",
+] as const;
+
+/** The connection string this deployment is configured with, if any. */
+export function connectionString(): string {
+  for (const name of CONNECTION_STRING_VARIABLES) {
+    const value = env(name);
+    if (value) return value;
+  }
+  return "";
+}
+
+export function configuredDatabaseVariable(): string | null {
+  return CONNECTION_STRING_VARIABLES.find((name) => env(name)) ?? null;
+}
+
+export { CONNECTION_STRING_VARIABLES };
+
 export function db() {
-  return getDatabase();
+  const url = connectionString();
+  // Passed explicitly rather than left to the library, which would only
+  // look at NETLIFY_DB_URL.
+  return url ? getDatabase({ connectionString: url }) : getDatabase();
 }
 
 /**
@@ -14,7 +51,7 @@ export function db() {
  * that it is a no-op. Use this anywhere a handler touches the database.
  */
 export async function readyDb() {
-  const database = getDatabase();
+  const database = db();
   await ensureSchema(database);
   return database;
 }

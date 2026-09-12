@@ -13,7 +13,7 @@
  */
 import type { Config } from "@netlify/functions";
 
-import { readyDb } from "./_shared/db.mts";
+import { CONNECTION_STRING_VARIABLES, connectionString, readyDb } from "./_shared/db.mts";
 import { env, hasEnv } from "./_shared/env.mts";
 
 interface Check {
@@ -29,16 +29,16 @@ function message(error: unknown): string {
 }
 
 async function databaseChecks(): Promise<Check[]> {
-  // @netlify/database reads either of these; the extension sets the first.
-  if (!hasEnv("NETLIFY_DATABASE_URL") && !hasEnv("NETLIFY_DB_URL")) {
+  if (!connectionString()) {
     return [
       {
         name: "Database",
         ok: false,
         detail:
           "No database is connected. Add an environment variable named " +
-          "NETLIFY_DATABASE_URL with a Postgres connection string, then " +
-          "redeploy. Nothing else on the shop can work until this is set.",
+          `${CONNECTION_STRING_VARIABLES[0]} with a Postgres connection ` +
+          "string, then redeploy. Nothing else on the shop can work until " +
+          "this is set.",
       },
     ];
   }

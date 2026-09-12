@@ -34,7 +34,7 @@ const envMap: Record<string, string> = {
   PAYFAST_MERCHANT_KEY: "46f0cd694581a",
   PAYFAST_PASSPHRASE,
   PAYFAST_NOTIFY_URL: "https://meravo.co.za/api/payments/payfast/notify",
-  NETLIFY_DB_URL: TEST_DB_URL,
+  DATABASE_URL: TEST_DB_URL,
   SMTP_HOST: "smtp.gmail.com",
   SMTP_USERNAME: "shop@meravo.co.za",
   SMTP_PASSWORD,
@@ -112,7 +112,7 @@ test("is never cached, so a redeploy is reflected immediately", async () => {
 test("says which variable is missing rather than just failing", async () => {
   // What someone launching actually needs: the name of the thing to set.
   const previous = { ...envMap };
-  delete envMap.NETLIFY_DB_URL;
+  delete envMap.DATABASE_URL;
   delete envMap.PAYFAST_NOTIFY_URL;
   delete envMap.SMTP_HOST;
   try {
@@ -121,7 +121,7 @@ test("says which variable is missing rather than just failing", async () => {
 
     const byName = Object.fromEntries(body.checks.map((c: any) => [c.name, c]));
     assert.equal(byName.Database.ok, false);
-    assert.match(byName.Database.detail, /NETLIFY_DATABASE_URL/);
+    assert.match(byName.Database.detail, /DATABASE_URL/);
     assert.match(byName["Payment confirmation"].detail, /PAYFAST_NOTIFY_URL/);
     // Email is optional, so its absence is flagged without blocking launch.
     assert.equal(byName["Order emails"].warning, true);
@@ -142,5 +142,30 @@ test("warns when live mode is still pointed at Payfast's test account", async ()
     assert.equal(body.ready, false);
   } finally {
     envMap.PAYFAST_MODE = previous;
+  }
+});
+
+test("accepts a connection string under any of the supported names", async () => {
+  // The bug this locks in: the guide told people to add
+  // NETLIFY_DATABASE_URL, @netlify/database only reads NETLIFY_DB_URL, and
+  // Netlify reserves the NETLIFY_ prefix so neither can be set by hand.
+  // A shop configured that way came up with no database and no clue why.
+  const { CONNECTION_STRING_VARIABLES, connectionString } = await import("./db.mts");
+  assert.equal(CONNECTION_STRING_VARIABLES[0], "DATABASE_URL", "the plain name must win");
+
+  const previous = { ...envMap };
+  try {
+    for (const name of CONNECTION_STRING_VARIABLES) {
+      for (const key of CONNECTION_STRING_VARIABLES) delete envMap[key];
+      envMap[name] = "postgresql://someone@example.test/db";
+      assert.equal(
+        connectionString(),
+        "postgresql://someone@example.test/db",
+        `a connection string set as ${name} was ignored`,
+      );
+    }
+  } finally {
+    for (const key of CONNECTION_STRING_VARIABLES) delete envMap[key];
+    Object.assign(envMap, previous);
   }
 });

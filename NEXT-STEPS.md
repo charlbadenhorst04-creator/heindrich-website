@@ -23,13 +23,18 @@ may be a single button:
 2. **Extensions** in the left sidebar → **Neon** → create a database
    (the free tier is plenty)
 
-Netlify sets `NETLIFY_DATABASE_URL` for you — there is nothing to copy or
+Netlify sets the connection string for you — there is nothing to copy or
 paste.
 
 ### If you cannot find that button
 
 Do it the manual way instead. It takes a few minutes longer and the result
-is identical — any Postgres connection string works here:
+is identical — any Postgres connection string works here.
+
+> The variable has to be called **`DATABASE_URL`**, exactly. Not
+> `NETLIFY_DATABASE_URL` — Netlify reserves names beginning with
+> `NETLIFY_` for its own extensions, so one typed in by hand is ignored
+> and the shop comes up with no database and no error to explain it.
 
 1. Go to **neon.tech** → sign up (free) → **Create project**
    - Region: pick **Frankfurt / eu-central-1** (closest to South Africa)
@@ -39,7 +44,7 @@ is identical — any Postgres connection string works here:
    ```
 3. **https://app.netlify.com/projects/meravo-shop** → **Environment
    variables** → **Add a variable** → **Add a single variable**
-   - Key: `NETLIFY_DATABASE_URL`
+   - Key: `DATABASE_URL`
    - Value: the connection string
    - Scope: **All**
 
