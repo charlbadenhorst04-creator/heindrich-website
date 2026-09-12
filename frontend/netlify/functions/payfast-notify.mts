@@ -1,5 +1,5 @@
 import type { Config } from "@netlify/functions";
-import { db } from "./_shared/db.mts";
+import { readyDb } from "./_shared/db.mts";
 import { signatureMatches, verifyItnWithPayfast } from "./_shared/payfast.mts";
 
 const PAYFAST_PASSPHRASE = Netlify.env.get("PAYFAST_PASSPHRASE") ?? "";
@@ -35,7 +35,7 @@ export default async (req: Request) => {
     return new Response("malformed amount", { status: 400 });
   }
 
-  const database = db();
+  const database = await readyDb();
   const orders = await database.sql`SELECT status, total_amount FROM orders WHERE id = ${orderId}`;
   if (orders.length === 0) {
     return new Response("order not found", { status: 404 });

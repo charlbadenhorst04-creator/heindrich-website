@@ -1,8 +1,8 @@
 import type { Config } from "@netlify/functions";
-import { db, jsonResponse } from "./_shared/db.mts";
+import { readyDb, jsonResponse } from "./_shared/db.mts";
 
 export default async () => {
-  const database = db();
+  const database = await readyDb();
   const rows = await database.sql`SELECT id, name, slug FROM categories ORDER BY name`;
   return jsonResponse(rows);
 };

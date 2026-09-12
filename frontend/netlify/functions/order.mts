@@ -1,10 +1,10 @@
 import type { Config, Context } from "@netlify/functions";
-import { db, errorResponse, jsonResponse } from "./_shared/db.mts";
+import { readyDb, errorResponse, jsonResponse } from "./_shared/db.mts";
 import { toOrderRead } from "./_shared/serializers.mts";
 
 export default async (req: Request, context: Context) => {
   const orderId = context.params.id;
-  const database = db();
+  const database = await readyDb();
 
   const orders = await database.sql`SELECT * FROM orders WHERE id = ${orderId}`;
   if (orders.length === 0) {

@@ -1,5 +1,5 @@
 import type { Config } from "@netlify/functions";
-import { db, jsonResponse } from "./_shared/db.mts";
+import { readyDb, jsonResponse } from "./_shared/db.mts";
 import { toProductRead } from "./_shared/serializers.mts";
 
 export default async (req: Request) => {
@@ -10,7 +10,7 @@ export default async (req: Request) => {
   const pageSize = Math.min(100, Math.max(1, Number(url.searchParams.get("page_size") ?? "12")));
   const offset = (page - 1) * pageSize;
 
-  const database = db();
+  const database = await readyDb();
   const conditions: string[] = ["p.is_active = true"];
   const params: (string | number)[] = [];
 

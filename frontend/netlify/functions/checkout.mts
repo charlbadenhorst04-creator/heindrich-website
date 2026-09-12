@@ -1,6 +1,6 @@
 import crypto from "node:crypto";
 import type { Config } from "@netlify/functions";
-import { db, errorResponse, jsonResponse } from "./_shared/db.mts";
+import { readyDb, errorResponse, jsonResponse } from "./_shared/db.mts";
 import { getOrCreateCart } from "./_shared/cart.mts";
 import { buildCheckoutFields, PAYFAST_HOST } from "./_shared/payfast.mts";
 import { COURIER_NAME, computeShippingFee } from "./_shared/shipping.mts";
@@ -22,7 +22,7 @@ export default async (req: Request) => {
     return errorResponse("Missing required checkout fields");
   }
 
-  const database = db();
+  const database = await readyDb();
   const cartId = await getOrCreateCart(database, sessionKey);
 
   const itemRows = await database.sql`

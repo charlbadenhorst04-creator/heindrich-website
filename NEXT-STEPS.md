@@ -1,91 +1,87 @@
-# Where things stand, and the one step left
+# Launching meravo.co.za
 
-Last updated: 2026-09-10
+## Already done
 
-## Done
+- Site built and live at **https://meravo.netlify.app**
+- Netlify project `meravo`, deploying from GitHub (branch
+  `claude/meravo-ecommerce-site-w82s0m`) — every push redeploys automatically
+- All six `PAYFAST_*` environment variables set, in sandbox mode
+- The site now **creates its own database tables and loads the 7 products on
+  its first visit**, so there is no SQL to run by hand
 
-- Site is built and live at **https://meravo.netlify.app**
-- Netlify project `meravo`, deploying from GitHub, branch
-  `claude/meravo-ecommerce-site-w82s0m` — every push redeploys automatically
-- All six `PAYFAST_*` environment variables are set (sandbox mode)
-- `meravo.co.za` is untouched and still on Shopify
+---
 
-## The one step left: a database
+## Step 1 — a database (about 3 minutes)
 
-The site loads, but the Shop page will be empty until the API functions have
-somewhere to read products from.
+1. Go to **neon.tech** → sign up (free) → **Create project**
+   - Region: pick **Frankfurt / eu-central-1** (closest to South Africa)
+2. It shows you a **connection string**. Copy it. It looks like:
+   ```
+   postgresql://neondb_owner:xxxx@ep-xxxx.eu-central-1.aws.neon.tech/neondb?sslmode=require
+   ```
 
-### 1. Get a free Postgres database
+## Step 2 — give it to Netlify (1 minute)
 
-Go to **neon.tech** → sign up → **Create project** → pick a region near South
-Africa (Frankfurt / `eu-central-1`).
-
-Copy the **connection string** it gives you. It looks like:
-
-```
-postgresql://neondb_owner:xxxx@ep-xxxx.eu-central-1.aws.neon.tech/neondb?sslmode=require
-```
-
-### 2. Tell Netlify about it
-
-Netlify → project `meravo` → **Environment variables** → **Add a variable** →
-**Add a single variable**:
+Netlify → project **meravo** → **Environment variables** → **Add a variable**
+→ **Add a single variable**
 
 - Key: `NETLIFY_DATABASE_URL`
 - Value: the connection string from step 1
 - Scope: **All**
 
-### 3. Create the tables
+## Step 3 — rebuild (1 minute)
 
-Back in Neon → **SQL Editor**. Open this file, click **Raw**, select all, copy:
+Netlify → **Deploys** → **Trigger deploy** → **Clear cache and deploy site**
 
-```
-https://github.com/charlbadenhorst04-creator/heindrich-website/raw/claude/meravo-ecommerce-site-w82s0m/frontend/netlify/database/migrations/20260905090000_init/migration.sql
-```
+Wait for it to go green, then open **https://meravo.netlify.app**.
 
-Paste it into the SQL Editor and **Run**. That creates the tables and inserts
-the 7 products.
+The first page load creates the tables and loads the catalogue by itself —
+it can take a few seconds. Refresh once if the shop looks empty at first.
 
-### 4. Rebuild
-
-Netlify → **Deploys** → **Trigger deploy** → **Clear cache and deploy site**.
-
-Environment variables only reach the functions on a fresh build.
-
-### 5. Check
-
-Open https://meravo.netlify.app
+## Step 4 — check it
 
 - Shop page lists 7 products with photos
 - Add one to the cart → cart shows R99 Aramex shipping
 - Checkout → button reads "Pay R … with Payfast"
 
-## Only after that works: the domain
+**If all three work, the store is ready.**
 
-Do not change DNS before the Netlify site is working end to end. The moment
-you repoint `meravo.co.za`, the Shopify store goes down.
+---
+
+## Step 5 — the domain (only once step 4 passes)
+
+Repointing DNS takes the existing Shopify store offline, so do this last.
 
 1. Netlify → **Domain management** → **Add a domain** → `meravo.co.za`
-2. At the registrar: delete the existing Shopify records for `@` and `www`,
-   then add the records Netlify shows you
-3. Update these three environment variables from `meravo.netlify.app` to
-   `meravo.co.za`, then redeploy:
-   - `PAYFAST_RETURN_URL`  → `https://meravo.co.za/order-success`
-   - `PAYFAST_CANCEL_URL`  → `https://meravo.co.za/cart`
-   - `PAYFAST_NOTIFY_URL`  → `https://meravo.co.za/api/payments/payfast/notify`
+2. Netlify shows you the DNS records to create. At your registrar:
+   **delete the existing Shopify records for `@` and `www`**, then add
+   Netlify's
+3. HTTPS is issued automatically once DNS resolves — minutes to an hour
+4. Update these three environment variables, then redeploy:
+   - `PAYFAST_RETURN_URL` → `https://meravo.co.za/order-success`
+   - `PAYFAST_CANCEL_URL` → `https://meravo.co.za/cart`
+   - `PAYFAST_NOTIFY_URL` → `https://meravo.co.za/api/payments/payfast/notify`
 
-## Known gaps on this Netlify version
+---
 
-- **No order emails and no WhatsApp.** They exist in the FastAPI backend
-  only. On Netlify, a customer can pay and nobody is notified — check for
-  orders in the Neon SQL editor:
+## Before taking real money
 
-  ```sql
-  SELECT created_at, customer_name, customer_email, phone, total_amount, status
-  FROM orders ORDER BY created_at DESC LIMIT 20;
-  ```
+`PAYFAST_MODE` is `sandbox`. No real payment can happen until you change it.
 
-  Only `PAID` rows are real sales.
+1. Put a test order all the way through using Payfast's sandbox card details
+2. Then set `PAYFAST_MODE=live` and add your real
+   `PAYFAST_MERCHANT_ID`, `PAYFAST_MERCHANT_KEY`, `PAYFAST_PASSPHRASE`
+3. Redeploy
 
-- Keep `PAYFAST_MODE=sandbox` until a test payment has gone all the way
-  through. No real money moves in sandbox.
+## Known gap on the Netlify version
+
+**No order emails and no WhatsApp.** Those exist in the FastAPI backend
+only. Here, a customer can pay and nobody is notified. Until that is added,
+check for orders in the Neon SQL editor:
+
+```sql
+SELECT created_at, customer_name, customer_email, phone, total_amount, status
+FROM orders ORDER BY created_at DESC LIMIT 20;
+```
+
+Only rows with `status = PAID` are real sales.

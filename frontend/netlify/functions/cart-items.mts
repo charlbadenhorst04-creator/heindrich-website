@@ -1,6 +1,6 @@
 import crypto from "node:crypto";
 import type { Config, Context } from "@netlify/functions";
-import { db, errorResponse, jsonResponse } from "./_shared/db.mts";
+import { readyDb, errorResponse, jsonResponse } from "./_shared/db.mts";
 import { getOrCreateCart, getCartRead } from "./_shared/cart.mts";
 
 export default async (req: Request, context: Context) => {
@@ -13,7 +13,7 @@ export default async (req: Request, context: Context) => {
     return errorResponse("product_id and a positive quantity are required");
   }
 
-  const database = db();
+  const database = await readyDb();
 
   const product = await database.sql`SELECT id, name, stock FROM products WHERE id = ${productId} AND is_active = true`;
   if (product.length === 0) {

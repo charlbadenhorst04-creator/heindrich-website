@@ -1,11 +1,11 @@
 import type { Config, Context } from "@netlify/functions";
-import { db, errorResponse, jsonResponse } from "./_shared/db.mts";
+import { readyDb, errorResponse, jsonResponse } from "./_shared/db.mts";
 import { getCartRead } from "./_shared/cart.mts";
 
 export default async (req: Request, context: Context) => {
   const sessionKey = context.params.sessionKey;
   const itemId = context.params.itemId;
-  const database = db();
+  const database = await readyDb();
 
   if (req.method === "PATCH") {
     const body = await req.json();

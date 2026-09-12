@@ -1,10 +1,10 @@
 import type { Config, Context } from "@netlify/functions";
-import { db, errorResponse, jsonResponse } from "./_shared/db.mts";
+import { readyDb, errorResponse, jsonResponse } from "./_shared/db.mts";
 import { toProductRead } from "./_shared/serializers.mts";
 
 export default async (req: Request, context: Context) => {
   const slug = context.params.slug;
-  const database = db();
+  const database = await readyDb();
 
   const rows = await database.sql`
     SELECT p.*, c.id AS c_id, c.name AS c_name, c.slug AS c_slug
