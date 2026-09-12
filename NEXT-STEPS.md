@@ -8,6 +8,7 @@
 - All six `PAYFAST_*` environment variables set, in sandbox mode
 - The site now **creates its own database tables and loads the 7 products on
   its first visit**, so there is no SQL to run by hand
+- Order emails are built in — off until you add the mail settings below
 
 ---
 
@@ -73,15 +74,61 @@ Repointing DNS takes the existing Shopify store offline, so do this last.
    `PAYFAST_MERCHANT_ID`, `PAYFAST_MERCHANT_KEY`, `PAYFAST_PASSPHRASE`
 3. Redeploy
 
-## Known gap on the Netlify version
+---
 
-**No order emails and no WhatsApp.** Those exist in the FastAPI backend
-only. Here, a customer can pay and nobody is notified. Until that is added,
-check for orders in the Neon SQL editor:
+## Order emails (optional, about 5 minutes)
+
+The site can email Heindrich the moment someone pays — what was bought,
+what was paid, and the customer's name, phone and delivery address — and
+email the customer a receipt at the same time. Replying to either message
+reaches the other person.
+
+Nothing is sent for an unpaid order, and a payment is never lost because of
+a mail problem: if the mail settings are wrong, the order is still recorded
+and paid, and the failure just shows up in the logs.
+
+**Until you set this up, nobody is notified when an order comes in** — you
+have to go and look (see "Seeing your orders" below).
+
+### 1. Get a Gmail App password
+
+Gmail will not accept the normal account password here.
+
+1. Turn on 2-Step Verification: https://myaccount.google.com/security
+2. Create an app password: https://myaccount.google.com/apppasswords
+3. Copy the 16 characters it gives you.
+
+### 2. Add six variables in Netlify
+
+Netlify → project **meravo** → **Environment variables**, scope **All**:
+
+| Key | Value |
+| --- | --- |
+| `SMTP_HOST` | `smtp.gmail.com` |
+| `SMTP_PORT` | `587` |
+| `SMTP_USERNAME` | the Gmail address sending the mail |
+| `SMTP_PASSWORD` | the 16-character app password |
+| `SHOP_OWNER_EMAIL` | `Heinrichcdoman@gmail.com` |
+| `STORE_URL` | `https://meravo.co.za` |
+
+### 3. Redeploy, then test
+
+Trigger a deploy, then put a sandbox order all the way through. Both inboxes
+should have mail within a few seconds. If they don't, check
+**Netlify → Logs → Functions** — the reason is written there in plain words.
+
+No WhatsApp on this deployment. That exists only in the Docker backend, and
+it needs a message template approved by Meta before it can send anything.
+
+---
+
+## Seeing your orders
+
+Any time, in the Neon SQL editor:
 
 ```sql
 SELECT created_at, customer_name, customer_email, phone, total_amount, status
 FROM orders ORDER BY created_at DESC LIMIT 20;
 ```
 
-Only rows with `status = PAID` are real sales.
+Only rows with `status = paid` are real sales.

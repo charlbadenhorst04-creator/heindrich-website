@@ -1,0 +1,21 @@
+// The serverless functions under netlify/ are not part of the Vite app, so
+// tsconfig.json (which only covers src/) never sees them. Without this they
+// ship entirely unchecked - a typo in a handler would only show up as a 500
+// on the live site. `npm run build` runs this, so a broken function fails
+// the deploy instead of reaching customers.
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "strict": true,
+    "skipLibCheck": true,
+    "types": ["node", "@netlify/functions"]
+  },
+  "include": ["netlify/**/*.mts"]
+}

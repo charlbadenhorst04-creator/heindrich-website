@@ -1,10 +1,9 @@
 import type { Config } from "@netlify/functions";
-import { readyDb } from "./_shared/db.mts";
+import { isUuid, readyDb } from "./_shared/db.mts";
+import { sendOrderEmails } from "./_shared/email.mts";
 import { signatureMatches, verifyItnWithPayfast } from "./_shared/payfast.mts";
 
 const PAYFAST_PASSPHRASE = Netlify.env.get("PAYFAST_PASSPHRASE") ?? "";
-
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export default async (req: Request) => {
   const raw = await req.text();
@@ -26,7 +25,7 @@ export default async (req: Request) => {
   }
   // Everything here arrives from the network: a malformed id must be a
   // clean 400, not a 500 from Postgres rejecting an unparseable uuid.
-  if (!UUID_RE.test(orderId)) {
+  if (!isUuid(orderId)) {
     return new Response("malformed order id", { status: 400 });
   }
 
@@ -64,6 +63,11 @@ export default async (req: Request) => {
       FROM order_items oi
       WHERE oi.order_id = ${orderId} AND oi.product_id = p.id
     `;
+    // Only on the transition to paid, so Payfast's retries cannot mail the
+    // same order twice. Awaited rather than left running, because a
+    // serverless instance is frozen the moment the response is returned -
+    // a background send would simply never happen.
+    await notify(database, orderId);
   } else if (!alreadyPaid) {
     await database.sql`
       UPDATE orders SET status = 'failed', payfast_payment_id = ${paymentId} WHERE id = ${orderId}
@@ -76,6 +80,26 @@ export default async (req: Request) => {
 
   return new Response("OK", { status: 200 });
 };
+
+/**
+ * Tell the shop owner and the customer about a paid order.
+ *
+ * Swallows everything. Payfast keeps retrying an ITN until it gets a 200,
+ * so letting a mail or database hiccup escape here would mean a paid order
+ * is settled repeatedly - or never confirmed at all.
+ */
+async function notify(database: any, orderId: string): Promise<void> {
+  try {
+    const orders = await database.sql`SELECT * FROM orders WHERE id = ${orderId}`;
+    if (orders.length === 0) return;
+    const items = await database.sql`
+      SELECT product_name, unit_price, quantity FROM order_items WHERE order_id = ${orderId}
+    `;
+    await sendOrderEmails({ ...orders[0], items });
+  } catch (error) {
+    console.error(`Order ${orderId}: could not send notifications`, error);
+  }
+}
 
 export const config: Config = {
   path: "/api/payments/payfast/notify",

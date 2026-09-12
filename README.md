@@ -309,6 +309,28 @@ If the mail server is unreachable or the password is wrong, the order is
 still recorded and marked paid — the failure is logged (`docker compose
 logs backend`) and never costs a sale.
 
+### On the Netlify deployment
+
+The same two emails, from the same settings, are sent by
+`frontend/netlify/functions/_shared/email.mts`. Set the same keys as
+**environment variables in the Netlify UI** rather than in `.env`:
+
+| Variable | Value |
+| --- | --- |
+| `SMTP_HOST` | `smtp.gmail.com` |
+| `SMTP_PORT` | `587` |
+| `SMTP_USERNAME` | the Gmail address that sends |
+| `SMTP_PASSWORD` | the 16-character App password |
+| `SHOP_OWNER_EMAIL` | who gets the "new paid order" email |
+| `STORE_URL` | `https://meravo.co.za` |
+
+Leave them unset and the shop works exactly as before, silently sending
+nothing. Failures are logged under **Netlify → Logs → Functions**.
+
+Unlike the Docker backend, the send is awaited inside the Payfast callback
+rather than backgrounded: a serverless instance is frozen the moment it
+answers, so work left running after the response would never finish.
+
 ## WhatsApp order confirmation
 
 When a payment is confirmed, the customer can also get a WhatsApp message
@@ -514,23 +536,36 @@ npm run lint      # ESLint
 npm run build     # type-checks (tsc -b) then builds
 ```
 
-Netlify functions (see "Netlify preview deployment" below) have their own
-real-execution test suite — they run raw SQL directly against Postgres, so
-type-checking alone can't catch bugs like a column name collision:
+Netlify functions (see "Netlify deployment" below) have their own
+real-execution test suite — they run raw SQL directly against Postgres and
+real SMTP against a throwaway mail server, so type-checking alone can't
+catch bugs like a column name collision or a receipt that bills two items
+at the price of one:
 ```bash
 cd frontend
 createdb meravo_netlify_test   # once, if it doesn't exist yet
+createdb meravo_autoinit       # once — used by the first-run setup tests
 npm run test:functions
 ```
 
-## Netlify preview deployment
+## Netlify deployment
 
-`netlify.toml` and `frontend/netlify/` configure an optional, independent
-deployment target: a Node/TypeScript mirror of the same API (same schema,
-same Payfast flow, same shipping rules) backed by Netlify DB (Postgres via
-Neon), for teams who want a shareable preview link without standing up
-their own server. It's kept in sync by hand with the FastAPI backend — the
-backend in `backend/` remains the source of truth and the one intended for
-production. To deploy: create a Netlify site, link this repository, and
-set the `PAYFAST_*` environment variables in the Netlify UI; the build
-picks up `netlify.toml` automatically.
+`netlify.toml` and `frontend/netlify/` configure a second, independent
+deployment target: a Node/TypeScript mirror of the same API — same schema,
+same Payfast flow, same shipping rules, same order emails — backed by
+Postgres (Netlify DB / Neon). It needs no server of your own, which is why
+meravo.co.za runs on it. See **NEXT-STEPS.md** for the launch steps.
+
+To deploy: create a Netlify site, link this repository, and set the
+`PAYFAST_*` variables (and the `SMTP_*` ones above, for order emails) in
+the Netlify UI. The build picks up `netlify.toml` automatically, and the
+first request after a database is connected creates the tables and seeds
+the catalogue by itself (`_shared/schema.mts`).
+
+The two deployments are kept in sync by hand, so a change to one is a
+change to both. Guard rails for that:
+
+- `npm run typecheck:functions` (which `npm run build` runs, so a broken
+  function fails the deploy instead of reaching customers)
+- `npm run test:functions` — runs the real handlers against a real
+  Postgres and a real SMTP server, not mocks

@@ -7,6 +7,12 @@
 [build.environment]
   VITE_API_BASE_URL = "/api"
 
+# Order emails go out through nodemailer, which reaches for optional
+# submodules at runtime. Bundling it with esbuild can drop those; shipping
+# the package as installed cannot.
+[functions]
+  external_node_modules = ["nodemailer"]
+
 # These mirror frontend/nginx.conf, which only applies to the Docker
 # deployment. Netlify serves the site itself, so the same protections have
 # to be declared here or they simply do not exist on this host.

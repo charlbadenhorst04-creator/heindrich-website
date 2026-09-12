@@ -203,3 +203,30 @@ test("stock is enforced server-side when adding to the cart", async () => {
   );
   assert.equal(overLimit.status, 409);
 });
+
+test("a malformed id in the URL is a clean 404, not a crash", async () => {
+  // Nothing in the UI produces these, but a crawler, a mistyped link or a
+  // stale bookmark will. Passed straight to Postgres, "not-a-uuid" raises
+  // `invalid input syntax for type uuid` and the function returns a 500.
+  const orderRes = await orderFn(new Request("http://x/api/orders/not-a-uuid"), {
+    params: { id: "not-a-uuid" },
+  } as any);
+  assert.equal(orderRes.status, 404);
+  assert.equal((await orderRes.json()).detail, "Order not found");
+
+  const sessionKey = `test-${Date.now()}-${Math.random()}`;
+  const deleteRes = await cartItemFn(
+    new Request(`http://x/api/cart/${sessionKey}/items/nope`, { method: "DELETE" }),
+    { params: { sessionKey, itemId: "nope" } } as any,
+  );
+  assert.equal(deleteRes.status, 404);
+
+  const patchRes = await cartItemFn(
+    new Request(`http://x/api/cart/${sessionKey}/items/nope`, {
+      method: "PATCH",
+      body: JSON.stringify({ quantity: 2 }),
+    }),
+    { params: { sessionKey, itemId: "nope" } } as any,
+  );
+  assert.equal(patchRes.status, 404);
+});

@@ -1,10 +1,14 @@
 import type { Config, Context } from "@netlify/functions";
-import { readyDb, errorResponse, jsonResponse } from "./_shared/db.mts";
+import { readyDb, errorResponse, isUuid, jsonResponse } from "./_shared/db.mts";
 import { getCartRead } from "./_shared/cart.mts";
 
 export default async (req: Request, context: Context) => {
   const sessionKey = context.params.sessionKey;
   const itemId = context.params.itemId;
+  if (!isUuid(itemId)) {
+    return errorResponse("Cart item not found", 404);
+  }
+
   const database = await readyDb();
 
   if (req.method === "PATCH") {

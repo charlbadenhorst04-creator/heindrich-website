@@ -1,9 +1,13 @@
 import type { Config, Context } from "@netlify/functions";
-import { readyDb, errorResponse, jsonResponse } from "./_shared/db.mts";
+import { readyDb, errorResponse, isUuid, jsonResponse } from "./_shared/db.mts";
 import { toOrderRead } from "./_shared/serializers.mts";
 
 export default async (req: Request, context: Context) => {
   const orderId = context.params.id;
+  if (!isUuid(orderId)) {
+    return errorResponse("Order not found", 404);
+  }
+
   const database = await readyDb();
 
   const orders = await database.sql`SELECT * FROM orders WHERE id = ${orderId}`;
