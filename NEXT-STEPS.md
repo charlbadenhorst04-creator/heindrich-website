@@ -2,8 +2,10 @@
 
 ## Already done
 
-- Site built and live at **https://meravo.netlify.app**
-- Netlify project `meravo`, deploying from GitHub (branch
+- Site built and live at **https://meravo-shop.netlify.app**
+- Netlify project **`meravo-shop`** (the URL is
+  `meravo-shop.netlify.app` — plain `meravo.netlify.app` is a different,
+  non-existent site and will 404), deploying from GitHub (branch
   `claude/meravo-ecommerce-site-w82s0m`) — every push redeploys automatically
 - All six `PAYFAST_*` environment variables set, in sandbox mode
 - The site now **creates its own database tables and loads the 7 products on
@@ -12,36 +14,45 @@
 
 ---
 
-## Step 1 — a database (about 3 minutes)
+## Step 1 — a database (about 1 minute)
+
+The Neon database extension is already installed on the project, so this is
+now a single button:
+
+1. Open **https://app.netlify.com/sites/meravo-shop/extensions/neon**
+2. Click the button to **create a database** (the free tier is plenty)
+
+Netlify sets `NETLIFY_DATABASE_URL` for you — there is nothing to copy or
+paste.
+
+### If that button is not there
+
+Do it the manual way instead; the result is identical:
 
 1. Go to **neon.tech** → sign up (free) → **Create project**
    - Region: pick **Frankfurt / eu-central-1** (closest to South Africa)
-2. It shows you a **connection string**. Copy it. It looks like:
+2. Copy the **connection string** it shows you. It looks like:
    ```
    postgresql://neondb_owner:xxxx@ep-xxxx.eu-central-1.aws.neon.tech/neondb?sslmode=require
    ```
+3. Netlify → project **meravo-shop** → **Environment variables** →
+   **Add a variable** → **Add a single variable**
+   - Key: `NETLIFY_DATABASE_URL`
+   - Value: the connection string
+   - Scope: **All**
 
-## Step 2 — give it to Netlify (1 minute)
-
-Netlify → project **meravo** → **Environment variables** → **Add a variable**
-→ **Add a single variable**
-
-- Key: `NETLIFY_DATABASE_URL`
-- Value: the connection string from step 1
-- Scope: **All**
-
-## Step 3 — rebuild (1 minute)
+## Step 2 — rebuild
 
 Netlify → **Deploys** → **Trigger deploy** → **Clear cache and deploy site**
 
-Wait for it to go green, then open **https://meravo.netlify.app**.
+Wait for it to go green, then open **https://meravo-shop.netlify.app**.
 
 The first page load creates the tables and loads the catalogue by itself —
 it can take a few seconds. Refresh once if the shop looks empty at first.
 
-## Step 4 — check it
+## Step 3 — check it
 
-Open **https://meravo.netlify.app/api/health**.
+Open **https://meravo-shop.netlify.app/api/health**.
 
 It is a plain status page that tells you, in words, what is working and
 what is not — no guessing, no logs. It says either *"The shop is ready to
@@ -59,7 +70,7 @@ Then check the shop itself:
 
 ---
 
-## Step 5 — the domain (only once step 4 passes)
+## Step 4 — the domain (only once step 3 passes)
 
 Repointing DNS takes the existing Shopify store offline, so do this last.
 
@@ -110,7 +121,7 @@ Gmail will not accept the normal account password here.
 
 ### 2. Add six variables in Netlify
 
-Netlify → project **meravo** → **Environment variables**, scope **All**:
+Netlify → project **meravo-shop** → **Environment variables**, scope **All**:
 
 | Key | Value |
 | --- | --- |
