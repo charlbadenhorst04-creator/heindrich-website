@@ -13,16 +13,20 @@
  *   a no-op rather than an error.
  * - INSERT ... ON CONFLICT DO NOTHING, so the seed never duplicates rows and
  *   never overwrites a price or stock level the shop has since changed.
- * - A Postgres advisory lock around the whole thing. Several functions can
- *   cold-start at once on the first visit; without the lock they would race
- *   and one would fail on a half-created table.
+ * - Statements are sent ONE AT A TIME. Neon's serverless driver runs each
+ *   query as its own request and rejects a batch of statements outright,
+ *   so sending the whole schema as one string fails on the real database
+ *   even though a local node-postgres connection accepts it happily.
+ * - The races that one-at-a-time opens up are caught rather than locked
+ *   out. Several functions cold-start at once on the first visit, and no
+ *   advisory lock can serialise them here: each statement may land on a
+ *   different connection, so a session-scoped lock is released before the
+ *   next statement runs. Two instances creating the same table at the same
+ *   moment is therefore expected, and treated as success.
  *
  * It mirrors database/migrations/20260905090000_init/migration.sql, which
  * remains the canonical schema for anyone setting the database up by hand.
  */
-
-// Chosen arbitrarily; only has to be the same number in every instance.
-const SETUP_LOCK_ID = 8410327;
 
 const SCHEMA_SQL = `
 CREATE TABLE IF NOT EXISTS categories (
@@ -143,20 +147,69 @@ INSERT INTO products (id, name, slug, description, price, image_url, stock, cate
 ON CONFLICT (id) DO NOTHING;
 `;
 
+/**
+ * Splits a script into individual statements.
+ *
+ * Deliberately simple: it assumes no semicolon appears inside a string
+ * literal, which holds for the two scripts above and is checked by the
+ * tests. A general SQL parser would be a lot of machinery for two constants
+ * that live in this file.
+ */
+function statementsOf(script: string): string[] {
+  return script
+    .split(";")
+    .map((statement) => statement.trim())
+    .filter((statement) => statement.length > 0);
+}
+
+const SCHEMA_STATEMENTS = statementsOf(SCHEMA_SQL);
+const SEED_STATEMENTS = statementsOf(SEED_SQL);
+
+/**
+ * Errors that mean "someone else got here first", which is success.
+ *
+ * CREATE TABLE IF NOT EXISTS is not atomic against another CREATE TABLE
+ * running at the same instant: Postgres checks for the table, finds none,
+ * and then trips over the row the other transaction has just written into
+ * its catalogue. That surfaces as a duplicate-key violation on an internal
+ * index rather than as "table already exists".
+ */
+const RACE_CODES = new Set([
+  "23505", // unique_violation - concurrent insert into a catalogue index
+  "42P07", // duplicate_table
+  "42P06", // duplicate_schema
+  "42710", // duplicate_object
+]);
+
+function isConcurrentCreationRace(error: any): boolean {
+  if (error && RACE_CODES.has(error.code)) return true;
+  const text = String(error?.message ?? "");
+  return (
+    text.includes("pg_type_typname_nsp_index") ||
+    text.includes("pg_class_relname_nsp_index") ||
+    /already exists/i.test(text)
+  );
+}
+
+async function runStatements(database: any, statements: string[]): Promise<void> {
+  for (const statement of statements) {
+    try {
+      await database.sql.unsafe(statement);
+    } catch (error) {
+      if (!isConcurrentCreationRace(error)) throw error;
+      // Another instance created this a moment ago. That is the outcome we
+      // wanted, so carry on rather than failing the whole first visit.
+    }
+  }
+}
+
 // One attempt per cold start. Cached as a promise so concurrent requests on
 // the same instance await the same run rather than each starting their own.
 let setupPromise: Promise<void> | null = null;
 
 async function runSetup(database: any): Promise<void> {
-  // Serialise across instances: whoever gets the lock creates the tables,
-  // everyone else waits and then finds the work already done.
-  await database.sql.unsafe(`SELECT pg_advisory_lock(${SETUP_LOCK_ID})`);
-  try {
-    await database.sql.unsafe(SCHEMA_SQL);
-    await database.sql.unsafe(SEED_SQL);
-  } finally {
-    await database.sql.unsafe(`SELECT pg_advisory_unlock(${SETUP_LOCK_ID})`);
-  }
+  await runStatements(database, SCHEMA_STATEMENTS);
+  await runStatements(database, SEED_STATEMENTS);
 }
 
 export function ensureSchema(database: any): Promise<void> {

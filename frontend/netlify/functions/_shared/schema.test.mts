@@ -20,11 +20,30 @@ const CONNECTION =
 
 let pool: pg.Pool;
 
-/** The slice of the @netlify/database surface schema.mts actually uses. */
+/**
+ * The slice of the @netlify/database surface schema.mts actually uses.
+ *
+ * node-postgres happily runs several statements sent as one string; Neon's
+ * serverless driver - what the live site uses - rejects them outright. That
+ * difference once let a broken first-run setup pass every test here and
+ * then fail on the real database with "Failed query: CREATE TABLE ...".
+ * So this stand-in is stricter than node-postgres on purpose: one
+ * statement per call, exactly like production.
+ */
 function fakeDatabase(p: pg.Pool) {
   return {
     sql: {
       unsafe: async (text: string) => {
+        const statements = text
+          .split(";")
+          .map((statement) => statement.trim())
+          .filter(Boolean);
+        if (statements.length > 1) {
+          throw new Error(
+            `cannot insert multiple commands into a prepared statement ` +
+              `(${statements.length} statements in one query)`,
+          );
+        }
         const res = await p.query(text);
         return res.rows;
       },
