@@ -16,18 +16,20 @@
 
 ## Step 1 — a database (about 1 minute)
 
-The Neon database extension is already installed on the project, so this is
-now a single button:
+The Neon database extension is already installed on the project, so this
+may be a single button:
 
-1. Open **https://app.netlify.com/sites/meravo-shop/extensions/neon**
-2. Click the button to **create a database** (the free tier is plenty)
+1. Open **https://app.netlify.com/projects/meravo-shop**
+2. **Extensions** in the left sidebar → **Neon** → create a database
+   (the free tier is plenty)
 
 Netlify sets `NETLIFY_DATABASE_URL` for you — there is nothing to copy or
 paste.
 
-### If that button is not there
+### If you cannot find that button
 
-Do it the manual way instead; the result is identical:
+Do it the manual way instead. It takes a few minutes longer and the result
+is identical — any Postgres connection string works here:
 
 1. Go to **neon.tech** → sign up (free) → **Create project**
    - Region: pick **Frankfurt / eu-central-1** (closest to South Africa)
@@ -35,8 +37,8 @@ Do it the manual way instead; the result is identical:
    ```
    postgresql://neondb_owner:xxxx@ep-xxxx.eu-central-1.aws.neon.tech/neondb?sslmode=require
    ```
-3. Netlify → project **meravo-shop** → **Environment variables** →
-   **Add a variable** → **Add a single variable**
+3. **https://app.netlify.com/projects/meravo-shop** → **Environment
+   variables** → **Add a variable** → **Add a single variable**
    - Key: `NETLIFY_DATABASE_URL`
    - Value: the connection string
    - Scope: **All**
