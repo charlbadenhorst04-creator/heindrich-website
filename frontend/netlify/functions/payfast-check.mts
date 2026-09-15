@@ -66,11 +66,52 @@ export default async (req: Request) => {
     )
     .join("");
 
-  const hidden = (withSignature: boolean) =>
-    Object.entries(fields)
-      .filter(([key]) => withSignature || key !== "signature")
-      .map(([key, value]) => `<input type="hidden" name="${escapeHtml(key)}" value="${escapeHtml(value)}">`)
+  const hidden = (keys: string[]) =>
+    keys
+      .filter((key) => key in fields)
+      .map(
+        (key) =>
+          `<input type="hidden" name="${escapeHtml(key)}" value="${escapeHtml(fields[key])}">`,
+      )
       .join("");
+
+  const all = Object.keys(fields);
+  const withoutSignature = all.filter((key) => key !== "signature");
+  // Payfast's four required fields, and nothing else.
+  const required = ["merchant_id", "merchant_key", "amount", "item_name"];
+  const requiredPlusUrls = [...required, "return_url", "cancel_url", "notify_url"];
+
+  /**
+   * Each attempt narrows where the fault is. Payfast answers every
+   * rejection identically, so the only way to find the offending field is
+   * to keep removing fields until one gets through.
+   */
+  const attempts: { label: string; keys: string[]; note: string; colour: string }[] = [
+    {
+      label: "1. Everything, signed",
+      keys: all,
+      note: "What checkout actually sends today.",
+      colour: "#7a2436",
+    },
+    {
+      label: "2. Everything, unsigned",
+      keys: withoutSignature,
+      note: "Works only if the signature is the problem.",
+      colour: "#96692b",
+    },
+    {
+      label: "3. Required fields only",
+      keys: required,
+      note: "merchant id, key, amount, item name. Fails only if the account itself is rejected.",
+      colour: "#4a6b52",
+    },
+    {
+      label: "4. Required fields + the three URLs",
+      keys: requiredPlusUrls,
+      note: "If 3 works and this fails, one of the URLs is being refused.",
+      colour: "#3f5a7a",
+    },
+  ];
 
   const action = `${PAYFAST_HOST}/eng/process`;
   const button =
@@ -102,17 +143,21 @@ export default async (req: Request) => {
 
   <h2 style="font-size:15px;color:#611c2b;">Send it to Payfast</h2>
   <p style="font-size:13px;color:#6b4450;margin:0 0 14px;">
-    Try the signed one first. If it fails and the unsigned one works, the
-    signature is wrong. If both fail, the fault is in the fields, not the
-    signature.
+    Try these <strong>in order</strong>, coming back here after each one.
+    Note which ones reach a payment page and which give 400. The first one
+    that works tells us what the broken one was carrying.
   </p>
-  <div style="display:flex;gap:12px;flex-wrap:wrap;">
-    <form method="POST" action="${escapeHtml(action)}">${hidden(true)}
-      <button type="submit" style="${button}">Post WITH signature</button>
-    </form>
-    <form method="POST" action="${escapeHtml(action)}">${hidden(false)}
-      <button type="submit" style="${button}background:#96692b;">Post WITHOUT signature</button>
-    </form>
+  <div style="display:grid;gap:12px;">
+    ${attempts
+      .map(
+        (attempt) => `<form method="POST" action="${escapeHtml(action)}"
+      style="background:#fff;border-radius:12px;padding:14px 18px;">
+      ${hidden(attempt.keys)}
+      <button type="submit" style="${button}background:${attempt.colour};">${escapeHtml(attempt.label)}</button>
+      <p style="margin:8px 0 0;font-size:12px;color:#6b4450;">${escapeHtml(attempt.note)}</p>
+    </form>`,
+      )
+      .join("")}
   </div>
 </div></body></html>`;
 
