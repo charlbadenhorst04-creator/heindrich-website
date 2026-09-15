@@ -80,4 +80,9 @@ export interface ShippingConfig {
   flat_fee: number;
   free_shipping_threshold: number;
   estimated_delivery: string;
+  // Absent on deployments that predate the payments switch, so anything
+  // other than an explicit false means the shop is taking card payments.
+  payments_enabled?: boolean;
+  payments_message?: string;
+  whatsapp_number?: string;
 }

@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import type { Config } from "@netlify/functions";
 import { readyDb, errorResponse, jsonResponse } from "./_shared/db.mts";
 import { env } from "./_shared/env.mts";
+import { paymentsStatus } from "./_shared/payments.mts";
 import { getOrCreateCart } from "./_shared/cart.mts";
 import { buildCheckoutFields, PAYFAST_HOST } from "./_shared/payfast.mts";
 import { COURIER_NAME, computeShippingFee } from "./_shared/shipping.mts";
@@ -21,6 +22,15 @@ export default async (req: Request) => {
 
   if (!sessionKey || !customerEmail || !customerName || !shippingAddress || !city || !postalCode || !province) {
     return errorResponse("Missing required checkout fields");
+  }
+
+  // Checked here as well as in the storefront. Without it, anyone posting
+  // to this endpoint directly - or on a stale page - creates an order that
+  // can never be paid for, which then sits in the database looking like a
+  // lost sale.
+  const payments = paymentsStatus();
+  if (!payments.enabled) {
+    return errorResponse(payments.message, 503);
   }
 
   const database = await readyDb();

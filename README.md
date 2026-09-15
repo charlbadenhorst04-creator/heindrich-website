@@ -576,6 +576,17 @@ whether order emails are on — plus the name of any variable that is
 missing. It reports only whether a setting exists, never its value, so it
 is safe to leave reachable, and a test locks that down.
 
+**Payments close themselves when there is no merchant account.** Payfast
+cannot process anything on its published demo credentials, and a checkout
+that ends at Payfast's blank "400 Bad Request" page is worse than one that
+says so. So `_shared/payments.mts` treats a missing merchant id, a missing
+key, or Payfast's demo id as "not taking cards yet": the checkout offers a
+WhatsApp handover with the basket filled in, and the API refuses the order
+rather than recording one nobody can pay for. Put real credentials in and
+it opens again on its own; `PAYMENTS_ENABLED` forces it either way.
+**Not yet mirrored in the FastAPI backend** - the Docker deployment still
+shows the pay button regardless.
+
 The two deployments are kept in sync by hand, so a change to one is a
 change to both. Guard rails for that:
 

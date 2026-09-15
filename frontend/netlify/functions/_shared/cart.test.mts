@@ -32,6 +32,9 @@ const envMap: Record<string, string> = {
   PAYFAST_RETURN_URL: "https://meravo.co.za/order-success",
   PAYFAST_CANCEL_URL: "https://meravo.co.za/cart",
   PAYFAST_NOTIFY_URL: "https://meravo.co.za/api/payments/payfast/notify",
+  // These tests use Payfast's demo merchant id, which the shop otherwise
+  // treats as "no real merchant account, do not offer to charge anyone".
+  PAYMENTS_ENABLED: "true",
   NETLIFY_DB_URL: TEST_DB_URL,
 };
 // @ts-expect-error - the real Netlify runtime provides this global
@@ -311,4 +314,56 @@ test("checkout never posts a blank field to Payfast", async () => {
   assert.equal(data.fields.name_first, "Thandi");
   assert.ok(!("name_last" in data.fields), "an empty name_last was still sent");
   assert.ok(data.fields.signature, "the form must still be signed");
+});
+
+test("checkout refuses to take an order when payments are closed", async () => {
+  // Without this an order is written to the database that can never be
+  // paid, and then sits there looking like a lost sale.
+  const { a } = await seededProductIds();
+  const sessionKey = `test-${Date.now()}-${Math.random()}`;
+
+  await cartItemsFn(
+    new Request(`http://x/api/cart/${sessionKey}/items`, {
+      method: "POST",
+      body: JSON.stringify({ product_id: a, quantity: 1 }),
+    }),
+    { params: { sessionKey } } as any,
+  );
+
+  // Unique, so the check below cannot be satisfied by another test's order.
+  const email = `closed-${Date.now()}-${Math.random()}@example.com`;
+
+  const previous = envMap.PAYMENTS_ENABLED;
+  envMap.PAYMENTS_ENABLED = "false";
+  try {
+    const res = await checkoutFn(
+      new Request("http://x/api/orders/checkout", {
+        method: "POST",
+        body: JSON.stringify({
+          session_key: sessionKey,
+          customer_email: email,
+          customer_name: "Thandi Nkosi",
+          shipping_address: "12 Kloof Street",
+          city: "Cape Town",
+          postal_code: "8001",
+          province: "Western Cape",
+        }),
+      }),
+    );
+
+    assert.equal(res.status, 503);
+    assert.match((await res.json()).detail, /WhatsApp/);
+  } finally {
+    envMap.PAYMENTS_ENABLED = previous;
+  }
+
+  // And nothing was written.
+  const client = new pg.Client({ connectionString: TEST_DB_URL });
+  await client.connect();
+  const { rows } = await client.query(
+    "SELECT count(*)::int AS n FROM orders WHERE customer_email = $1",
+    [email],
+  );
+  await client.end();
+  assert.equal(rows[0].n, 0, "an unpayable order was recorded anyway");
 });

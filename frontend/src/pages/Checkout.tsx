@@ -36,6 +36,20 @@ function submitPayfastForm(actionUrl: string, fields: Record<string, string>) {
   form.submit();
 }
 
+/**
+ * Turns a South African number as it is normally written ("067 157 2670")
+ * into the international form wa.me needs. Already-international numbers
+ * are left alone.
+ */
+function whatsappLink(rawNumber: string, message: string): string {
+  const digits = rawNumber.replace(/[^\d+]/g, "");
+  let international = digits.replace(/^\+/, "");
+  if (international.startsWith("0")) {
+    international = `27${international.slice(1)}`;
+  }
+  return `https://wa.me/${international}?text=${encodeURIComponent(message)}`;
+}
+
 export default function Checkout() {
   const {
     cart,
@@ -51,6 +65,10 @@ export default function Checkout() {
   const navigate = useNavigate();
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Only an explicit false closes checkout, so a deployment whose API
+  // predates this setting keeps taking payments as before.
+  const paymentsOpen = shippingConfig?.payments_enabled !== false;
 
   const [form, setForm] = useState({
     customer_name: "",
@@ -80,6 +98,9 @@ export default function Checkout() {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    // Pressing Enter in a text field submits the form even when the pay
+    // button is not on screen, so the closed state is enforced here too.
+    if (!paymentsOpen) return;
     setSubmitting(true);
     setError(null);
     try {
@@ -179,22 +200,56 @@ export default function Checkout() {
 
           {error && <p className="text-sm text-red-600">{error}</p>}
 
-          <button
-            type="submit"
-            disabled={submitting}
-            className="w-full rounded-full bg-maroon-700 py-3 text-sm font-semibold text-white hover:bg-maroon-800 disabled:opacity-60"
-          >
-            {submitting
-              ? "Redirecting to secure payment..."
-              : shippingKnown()
-                ? `Pay ${formatZAR(grandTotal())} with Payfast`
-                : "Continue to secure payment"}
-          </button>
+          {paymentsOpen ? (
+            <>
+              <button
+                type="submit"
+                disabled={submitting}
+                className="w-full rounded-full bg-maroon-700 py-3 text-sm font-semibold text-white hover:bg-maroon-800 disabled:opacity-60"
+              >
+                {submitting
+                  ? "Redirecting to secure payment..."
+                  : shippingKnown()
+                    ? `Pay ${formatZAR(grandTotal())} with Payfast`
+                    : "Continue to secure payment"}
+              </button>
 
-          <p className="text-center text-xs text-maroon-900/40">
-            You'll be redirected to Payfast's secure page to complete payment by card, EFT or
-            instant EFT.
-          </p>
+              <p className="text-center text-xs text-maroon-900/40">
+                You'll be redirected to Payfast's secure page to complete payment by card, EFT or
+                instant EFT.
+              </p>
+            </>
+          ) : (
+            /* Card payments are not available yet. Rather than let someone
+               fill all of this in and then fail at the payment provider,
+               say so plainly and hand the order to WhatsApp, which is a
+               route that actually works today. */
+            <div className="rounded-2xl bg-blush-50 p-5 ring-1 ring-maroon-100">
+              <p className="text-sm font-semibold text-maroon-800">
+                Card payments open here shortly
+              </p>
+              <p className="mt-1 text-sm text-maroon-900/70">
+                {shippingConfig?.payments_message ??
+                  "Send us your order on WhatsApp and we'll get it on its way."}
+              </p>
+              <a
+                href={whatsappLink(
+                  shippingConfig?.whatsapp_number ?? "067 157 2670",
+                  `Hi MERAVO, I'd like to order:\n\n${cart.items
+                    .map((item) => `• ${item.product.name} x${item.quantity}`)
+                    .join("\n")}\n\nTotal: ${formatZAR(grandTotal())}`,
+                )}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-4 block w-full rounded-full bg-maroon-700 py-3 text-center text-sm font-semibold text-white hover:bg-maroon-800"
+              >
+                Send this order on WhatsApp
+              </a>
+              <p className="mt-3 text-center text-xs text-maroon-900/40">
+                Your basket is filled in for you — just press send.
+              </p>
+            </div>
+          )}
         </motion.form>
 
         <motion.div
