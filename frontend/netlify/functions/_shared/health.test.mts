@@ -169,3 +169,27 @@ test("accepts a connection string under any of the supported names", async () =>
     Object.assign(envMap, previous);
   }
 });
+
+test("the Payfast test bench refuses to run in live mode", async () => {
+  // It prints the exact string a payment is signed from, which is all
+  // someone would need to forge one against a real merchant account.
+  const previous = envMap.PAYFAST_MODE;
+  try {
+    const { default: payfastCheck } = await import("../payfast-check.mts");
+
+    const sandbox = await payfastCheck(new Request("https://meravo.co.za/api/payfast-check"));
+    assert.equal(sandbox.status, 200);
+    const body = await sandbox.text();
+    assert.ok(!body.includes(PAYFAST_PASSPHRASE), "the passphrase was printed");
+    assert.match(body, /merchant_id/);
+
+    envMap.PAYFAST_MODE = "live";
+    // PAYFAST_MODE is read when the module first loads, so a fresh copy is
+    // needed to see the change - the same as a new deploy would be.
+    const { default: liveCheck } = await import(`../payfast-check.mts?live=${Date.now()}`);
+    const live = await liveCheck(new Request("https://meravo.co.za/api/payfast-check"));
+    assert.equal(live.status, 404, "the test bench was reachable on a live store");
+  } finally {
+    envMap.PAYFAST_MODE = previous;
+  }
+});

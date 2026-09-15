@@ -24,7 +24,7 @@ function phpStyleEncode(value: string): string {
  * example omits empty fields, while the ITN example signs every field as
  * received. `skipEmpty` selects which convention to use.
  */
-export function buildSignature(
+export function signatureSource(
   fields: Record<string, string>,
   passphrase = "",
   skipEmpty = true,
@@ -36,8 +36,30 @@ export function buildSignature(
   if (passphrase) {
     query += `&passphrase=${phpStyleEncode(passphrase)}`;
   }
-  return crypto.createHash("md5").update(query, "utf-8").digest("hex");
+  return query;
 }
+
+export function buildSignature(
+  fields: Record<string, string>,
+  passphrase = "",
+  skipEmpty = true,
+): string {
+  return crypto
+    .createHash("md5")
+    .update(signatureSource(fields, passphrase, skipEmpty), "utf-8")
+    .digest("hex");
+}
+
+/** Whether a passphrase is configured, without revealing it. */
+export function hasPassphrase(): boolean {
+  return PAYFAST_PASSPHRASE !== "";
+}
+
+export const PAYFAST_CREDENTIALS = {
+  merchantId: PAYFAST_MERCHANT_ID,
+  merchantKey: PAYFAST_MERCHANT_KEY,
+  mode: PAYFAST_MODE,
+};
 
 /**
  * Validates an incoming ITN signature, accepting either Payfast
