@@ -1,162 +1,106 @@
-# Launching meravo.co.za
+# MERAVO — where things stand
 
-## Already done
+Last updated the night of 15 September.
 
-- Site built and live at **https://meravo-shop.netlify.app**
-- Netlify project **`meravo-shop`** (the URL is
-  `meravo-shop.netlify.app` — plain `meravo.netlify.app` is a different,
-  non-existent site and will 404), deploying from GitHub (branch
-  `claude/meravo-ecommerce-site-w82s0m`) — every push redeploys automatically
-- All six `PAYFAST_*` environment variables set, in sandbox mode
-- The site now **creates its own database tables and loads the 7 products on
-  its first visit**, so there is no SQL to run by hand
-- Order emails are built in — off until you add the mail settings below
+## The shop is live and working
 
----
+**https://meravo-store.netlify.app**
 
-## Step 1 — a database (about 1 minute)
+- Netlify project **`meravo-store`**, deploying from GitHub (branch
+  `claude/meravo-ecommerce-site-w82s0m`) — every push redeploys by itself
+- Neon database connected (Frankfurt), all 7 products loaded
+- Cart, shipping (R99 Aramex, free over R1500), orders all working
+- Status page any time: **https://meravo-store.netlify.app/api/health**
+  It says in plain words what is working and what is not.
 
-The Neon database extension is already installed on the project, so this
-may be a single button:
+## What is not done, in the order it matters
 
-1. Open **https://app.netlify.com/projects/meravo-shop**
-2. **Extensions** in the left sidebar → **Neon** → create a database
-   (the free tier is plenty)
+### 1. Payfast — nobody can pay by card yet
 
-Netlify sets the connection string for you — there is nothing to copy or
-paste.
+There is **no Payfast merchant account** for Meravo. That is the whole
+reason checkout was failing with "400 Bad Request": the shop was using
+Payfast's published demo credentials, which Payfast no longer honours.
 
-### If you cannot find that button
+Until an account exists, the checkout says so and offers the customer a
+**WhatsApp button with their basket and total already written out**, so
+orders still come in. It reopens by itself the moment real credentials are
+set — there is nothing to switch back.
 
-Do it the manual way instead. It takes a few minutes longer and the result
-is identical — any Postgres connection string works here.
+- **Heindrich** registers at **payfast.io**. Needs ID, bank details,
+  business details. Verification takes a day or a few.
+- **Meanwhile**, register a free sandbox account at
+  **sandbox.payfast.co.za** with your own email. It issues your own
+  sandbox Merchant ID and Key. Put those in Netlify as
+  `PAYFAST_MERCHANT_ID` and `PAYFAST_MERCHANT_KEY`, redeploy, and the whole
+  payment flow can be proven end to end before his account is approved.
 
-> The variable has to be called **`DATABASE_URL`**, exactly. Not
-> `NETLIFY_DATABASE_URL` — Netlify reserves names beginning with
-> `NETLIFY_` for its own extensions, so one typed in by hand is ignored
-> and the shop comes up with no database and no error to explain it.
+### 2. The domain — blocked on a Google login
 
-1. Go to **neon.tech** → sign up (free) → **Create project**
-   - Region: pick **Frankfurt / eu-central-1** (closest to South Africa)
-2. Copy the **connection string** it shows you. It looks like:
-   ```
-   postgresql://neondb_owner:xxxx@ep-xxxx.eu-central-1.aws.neon.tech/neondb?sslmode=require
-   ```
-3. **https://app.netlify.com/projects/meravo-shop** → **Environment
-   variables** → **Add a variable** → **Add a single variable**
-   - Key: `DATABASE_URL`
-   - Value: the connection string
-   - Scope: **All**
+`meravo.co.za` is registered (expires 2026-11-03) and its DNS is hosted at
+**Google** — the nameservers are `ns-cloud-a1…a4.googledomains.com`.
 
-## Step 2 — rebuild
+It is **not** on Shopify. The Shopify store was never connected to the
+domain at all, so pointing it breaks nothing.
 
-Netlify → **Deploys** → **Trigger deploy** → **Clear cache and deploy site**
+To finish it you need the Google account that holds the DNS zone. It will
+be in one of:
 
-Wait for it to go green, then open **https://meravo-shop.netlify.app**.
+- **domains.squarespace.com** (Google Domains accounts moved there)
+- **console.cloud.google.com → Network Services → Cloud DNS**
 
-The first page load creates the tables and loads the catalogue by itself —
-it can take a few seconds. Refresh once if the shop looks empty at first.
+Then: Netlify → **meravo-store → Domain management → Add a domain** →
+`meravo.co.za`. Netlify shows two records. In Google DNS change:
 
-## Step 3 — check it
+| Type | Name | Value |
+| --- | --- | --- |
+| `A` | `@` (root) | the IP Netlify shows you |
+| `CNAME` | `www` | `meravo-store.netlify.app` |
 
-Open **https://meravo-shop.netlify.app/api/health**.
+**Leave every `MX` and `TXT` record alone** — those are email.
 
-It is a plain status page that tells you, in words, what is working and
-what is not — no guessing, no logs. It says either *"The shop is ready to
-take orders"* or exactly which setting is missing. Open it any time
-something looks wrong; it is safe to leave up, because it never shows a
-password or a key.
+Afterwards update these four in Netlify and redeploy:
 
-Then check the shop itself:
+- `PAYFAST_RETURN_URL` → `https://meravo.co.za/order-success`
+- `PAYFAST_CANCEL_URL` → `https://meravo.co.za/cart`
+- `PAYFAST_NOTIFY_URL` → `https://meravo.co.za/api/payments/payfast/notify`
+- `STORE_URL` → `https://meravo.co.za`
 
-- Shop page lists 7 products with photos
-- Add one to the cart → cart shows R99 Aramex shipping
-- Checkout → button reads "Pay R … with Payfast"
+### 3. Order emails — 10 minutes, optional
 
-**If those work, the store is ready.**
+Nobody is emailed when an order comes in. To turn it on:
 
----
+1. https://myaccount.google.com/security → 2-Step Verification on
+2. https://myaccount.google.com/apppasswords → create one, copy the 16
+   characters
 
-## Step 4 — the domain (only once step 3 passes)
-
-Repointing DNS takes the existing Shopify store offline, so do this last.
-
-1. Netlify → **Domain management** → **Add a domain** → `meravo.co.za`
-2. Netlify shows you the DNS records to create. At your registrar:
-   **delete the existing Shopify records for `@` and `www`**, then add
-   Netlify's
-3. HTTPS is issued automatically once DNS resolves — minutes to an hour
-4. Update these three environment variables, then redeploy:
-   - `PAYFAST_RETURN_URL` → `https://meravo.co.za/order-success`
-   - `PAYFAST_CANCEL_URL` → `https://meravo.co.za/cart`
-   - `PAYFAST_NOTIFY_URL` → `https://meravo.co.za/api/payments/payfast/notify`
-
----
-
-## Before taking real money
-
-`PAYFAST_MODE` is `sandbox`. No real payment can happen until you change it.
-
-1. Put a test order all the way through using Payfast's sandbox card details
-2. Then set `PAYFAST_MODE=live` and add your real
-   `PAYFAST_MERCHANT_ID`, `PAYFAST_MERCHANT_KEY`, `PAYFAST_PASSPHRASE`
-3. Redeploy
-
----
-
-## Order emails (optional, about 5 minutes)
-
-The site can email Heindrich the moment someone pays — what was bought,
-what was paid, and the customer's name, phone and delivery address — and
-email the customer a receipt at the same time. Replying to either message
-reaches the other person.
-
-Nothing is sent for an unpaid order, and a payment is never lost because of
-a mail problem: if the mail settings are wrong, the order is still recorded
-and paid, and the failure just shows up in the logs.
-
-**Until you set this up, nobody is notified when an order comes in** — you
-have to go and look (see "Seeing your orders" below).
-
-### 1. Get a Gmail App password
-
-Gmail will not accept the normal account password here.
-
-1. Turn on 2-Step Verification: https://myaccount.google.com/security
-2. Create an app password: https://myaccount.google.com/apppasswords
-3. Copy the 16 characters it gives you.
-
-### 2. Add six variables in Netlify
-
-Netlify → project **meravo-shop** → **Environment variables**, scope **All**:
+Then in Netlify → **meravo-store → Environment variables**, scope **All**:
 
 | Key | Value |
 | --- | --- |
 | `SMTP_HOST` | `smtp.gmail.com` |
 | `SMTP_PORT` | `587` |
-| `SMTP_USERNAME` | the Gmail address sending the mail |
+| `SMTP_USERNAME` | your Gmail address |
 | `SMTP_PASSWORD` | the 16-character app password |
 | `SHOP_OWNER_EMAIL` | `Heinrichcdoman@gmail.com` |
-| `STORE_URL` | `https://meravo.co.za` |
+| `STORE_URL` | `https://meravo-store.netlify.app` |
 
-### 3. Redeploy, then test
+Redeploy, then check `/api/health` — that line turns green.
 
-Trigger a deploy, then put a sandbox order all the way through. Both inboxes
-should have mail within a few seconds. If they don't, check
-**Netlify → Logs → Functions** — the reason is written there in plain words.
+## Housekeeping when there is time
 
-No WhatsApp on this deployment. That exists only in the Docker backend, and
-it needs a message template approved by Meta before it can send anything.
+- **Rotate the database password.** The current one was pasted into a chat.
+  Neon → Reset password → paste the new connection string into
+  `DATABASE_URL` in Netlify → redeploy.
+- **Delete the `meravo-shop` Netlify project.** It was an earlier attempt
+  that never deployed and only causes confusion.
+- **No WhatsApp order confirmations** on this deployment. That exists only
+  in the Docker backend and needs a message template approved by Meta.
 
----
+## Useful links
 
-## Seeing your orders
-
-Any time, in the Neon SQL editor:
-
-```sql
-SELECT created_at, customer_name, customer_email, phone, total_amount, status
-FROM orders ORDER BY created_at DESC LIMIT 20;
-```
-
-Only rows with `status = paid` are real sales.
+- Shop: https://meravo-store.netlify.app
+- Status: https://meravo-store.netlify.app/api/health
+- Payfast handover check (sandbox only):
+  https://meravo-store.netlify.app/api/payfast-check
+- Netlify: https://app.netlify.com/projects/meravo-store
+- Database: https://console.neon.tech
