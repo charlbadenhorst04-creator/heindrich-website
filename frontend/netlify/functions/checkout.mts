@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import type { Config } from "@netlify/functions";
 import { readyDb, errorResponse, jsonResponse } from "./_shared/db.mts";
+import { env } from "./_shared/env.mts";
 import { getOrCreateCart } from "./_shared/cart.mts";
 import { buildCheckoutFields, PAYFAST_HOST } from "./_shared/payfast.mts";
 import { COURIER_NAME, computeShippingFee } from "./_shared/shipping.mts";
@@ -73,16 +74,23 @@ export default async (req: Request) => {
     `;
   }
 
-  const siteUrl = Netlify.env.get("URL") ?? "";
+  // PAYFAST_RETURN_URL / _CANCEL_URL / _NOTIFY_URL are what the setup
+  // documents, what the FastAPI backend uses, and what has to change when
+  // the shop moves to its own domain. This used to ignore them and build
+  // the URLs from Netlify's own URL variable instead, so setting them did
+  // nothing - and if that variable was not there at runtime, Payfast was
+  // handed "/order-success" as a return address and refused the whole
+  // payment with 400 Bad Request.
+  const siteUrl = (env("STORE_URL") || env("URL")).replace(/\/+$/, "");
   const fields = buildCheckoutFields({
     orderId,
     amount: total,
     itemName: `MERAVO order ${orderId}`,
     customerEmail,
     customerName,
-    returnUrl: `${siteUrl}/order-success`,
-    cancelUrl: `${siteUrl}/cart`,
-    notifyUrl: `${siteUrl}/api/payments/payfast/notify`,
+    returnUrl: env("PAYFAST_RETURN_URL") || `${siteUrl}/order-success`,
+    cancelUrl: env("PAYFAST_CANCEL_URL") || `${siteUrl}/cart`,
+    notifyUrl: env("PAYFAST_NOTIFY_URL") || `${siteUrl}/api/payments/payfast/notify`,
   });
 
   return jsonResponse({ order_id: orderId, action_url: `${PAYFAST_HOST}/eng/process`, fields });

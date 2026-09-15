@@ -29,6 +29,9 @@ const envMap: Record<string, string> = {
   PAYFAST_MERCHANT_ID: "10000100",
   PAYFAST_MERCHANT_KEY: "46f0cd694581a",
   PAYFAST_PASSPHRASE: "",
+  PAYFAST_RETURN_URL: "https://meravo.co.za/order-success",
+  PAYFAST_CANCEL_URL: "https://meravo.co.za/cart",
+  PAYFAST_NOTIFY_URL: "https://meravo.co.za/api/payments/payfast/notify",
   NETLIFY_DB_URL: TEST_DB_URL,
 };
 // @ts-expect-error - the real Netlify runtime provides this global
@@ -229,4 +232,83 @@ test("a malformed id in the URL is a clean 404, not a crash", async () => {
     { params: { sessionKey, itemId: "nope" } } as any,
   );
   assert.equal(patchRes.status, 404);
+});
+
+test("checkout sends Payfast the configured URLs, not ones it invents", async () => {
+  // Payfast answers 400 Bad Request to a relative or missing return_url,
+  // which is what happened live: these three settings were documented,
+  // set in the dashboard, and then ignored in favour of Netlify's own URL
+  // variable. They are also the settings that have to change when the shop
+  // moves onto its own domain.
+  const { a } = await seededProductIds();
+  const sessionKey = `test-${Date.now()}-${Math.random()}`;
+
+  await cartItemsFn(
+    new Request(`http://x/api/cart/${sessionKey}/items`, {
+      method: "POST",
+      body: JSON.stringify({ product_id: a, quantity: 1 }),
+    }),
+    { params: { sessionKey } } as any,
+  );
+
+  const res = await checkoutFn(
+    new Request("http://x/api/orders/checkout", {
+      method: "POST",
+      body: JSON.stringify({
+        session_key: sessionKey,
+        customer_email: "thandi@example.com",
+        customer_name: "Thandi Nkosi",
+        shipping_address: "12 Kloof Street",
+        city: "Cape Town",
+        postal_code: "8001",
+        province: "Western Cape",
+      }),
+    }),
+  );
+  const data = await res.json();
+
+  assert.equal(data.fields.return_url, "https://meravo.co.za/order-success");
+  assert.equal(data.fields.cancel_url, "https://meravo.co.za/cart");
+  assert.equal(data.fields.notify_url, "https://meravo.co.za/api/payments/payfast/notify");
+  for (const url of [data.fields.return_url, data.fields.cancel_url, data.fields.notify_url]) {
+    assert.ok(url.startsWith("https://"), `Payfast rejects a non-absolute URL: ${url}`);
+  }
+});
+
+test("checkout never posts a blank field to Payfast", async () => {
+  // Payfast signs the non-empty fields. Posting a blank one as well means
+  // it computes a different signature than we did and refuses the payment.
+  // A customer with a one-word name is the everyday way to hit this.
+  const { a } = await seededProductIds();
+  const sessionKey = `test-${Date.now()}-${Math.random()}`;
+
+  await cartItemsFn(
+    new Request(`http://x/api/cart/${sessionKey}/items`, {
+      method: "POST",
+      body: JSON.stringify({ product_id: a, quantity: 1 }),
+    }),
+    { params: { sessionKey } } as any,
+  );
+
+  const res = await checkoutFn(
+    new Request("http://x/api/orders/checkout", {
+      method: "POST",
+      body: JSON.stringify({
+        session_key: sessionKey,
+        customer_email: "thandi@example.com",
+        customer_name: "Thandi",
+        shipping_address: "12 Kloof Street",
+        city: "Cape Town",
+        postal_code: "8001",
+        province: "Western Cape",
+      }),
+    }),
+  );
+  const data = await res.json();
+
+  const blanks = Object.entries(data.fields).filter(([, value]) => value === "");
+  assert.deepEqual(blanks, [], "a blank field was posted to Payfast");
+  assert.equal(data.fields.name_first, "Thandi");
+  assert.ok(!("name_last" in data.fields), "an empty name_last was still sent");
+  assert.ok(data.fields.signature, "the form must still be signed");
 });

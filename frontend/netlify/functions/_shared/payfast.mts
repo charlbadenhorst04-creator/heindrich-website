@@ -64,7 +64,7 @@ export function buildCheckoutFields(opts: {
   const [firstName, ...rest] = opts.customerName.trim().split(" ");
   const lastName = rest.join(" ");
 
-  const fields: Record<string, string> = {
+  const candidate: Record<string, string> = {
     merchant_id: PAYFAST_MERCHANT_ID,
     merchant_key: PAYFAST_MERCHANT_KEY,
     return_url: opts.returnUrl,
@@ -77,6 +77,17 @@ export function buildCheckoutFields(opts: {
     amount: opts.amount.toFixed(2),
     item_name: opts.itemName.slice(0, 100),
   };
+
+  // Blank fields are dropped rather than posted empty. The signature is
+  // built over the non-empty fields (Payfast's own convention), so posting
+  // a blank one as well means Payfast signs a different set than we did
+  // and rejects the whole thing with "400 Bad Request" - which is what a
+  // customer with a one-word name, or a missing URL setting, would hit.
+  const fields: Record<string, string> = {};
+  for (const [key, value] of Object.entries(candidate)) {
+    if (value !== "") fields[key] = value;
+  }
+
   fields.signature = buildSignature(fields, PAYFAST_PASSPHRASE);
   return fields;
 }
