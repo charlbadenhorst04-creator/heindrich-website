@@ -20,10 +20,10 @@ import type { Config } from "@netlify/functions";
 
 import { env } from "./_shared/env.mts";
 import {
-  PAYFAST_CREDENTIALS,
-  PAYFAST_HOST,
   buildCheckoutFields,
   hasPassphrase,
+  payfastCredentials,
+  payfastHost,
   signatureSource,
 } from "./_shared/payfast.mts";
 
@@ -34,7 +34,7 @@ function escapeHtml(value: string): string {
 export default async (req: Request) => {
   // Read at request time as well as at load: flipping PAYFAST_MODE to live
   // must close this page on the next request, not on the next cold start.
-  if (env("PAYFAST_MODE", "sandbox") === "live" || PAYFAST_CREDENTIALS.mode === "live") {
+  if (env("PAYFAST_MODE", "sandbox") === "live") {
     return new Response(
       "Not available in live mode - this page prints the exact string a payment is signed from.",
       { status: 404, headers: { "Cache-Control": "no-store" } },
@@ -57,6 +57,33 @@ export default async (req: Request) => {
   // The passphrase is deliberately left out of what is printed. Its
   // presence is reported, its value never is.
   const source = signatureSource(signed, "");
+
+  // Names only for the secret ones; presence is what matters here.
+  const WATCHED: [string, boolean][] = [
+    ["PAYFAST_MODE", true],
+    ["PAYFAST_MERCHANT_ID", true],
+    ["PAYFAST_MERCHANT_KEY", false],
+    ["PAYFAST_PASSPHRASE", false],
+    ["PAYFAST_RETURN_URL", true],
+    ["PAYFAST_CANCEL_URL", true],
+    ["PAYFAST_NOTIFY_URL", true],
+    ["STORE_URL", true],
+    ["DATABASE_URL", false],
+    ["SMTP_HOST", true],
+    ["URL", true],
+  ];
+  const settingsRows = WATCHED.map(([name, showValue]) => {
+    const value = env(name);
+    const shown = !value
+      ? '<span style="color:#a3283c;">not set</span>'
+      : showValue
+        ? escapeHtml(value)
+        : '<span style="color:#2f7d4f;">set</span>';
+    return (
+      `<tr><td style="padding:6px 14px 6px 0;font-family:monospace;color:#7a2436;white-space:nowrap;">${name}</td>` +
+      `<td style="padding:6px 0;font-family:monospace;word-break:break-all;">${shown}</td></tr>`
+    );
+  }).join("");
 
   const rows = Object.entries(fields)
     .map(
@@ -113,7 +140,7 @@ export default async (req: Request) => {
     },
   ];
 
-  const action = `${PAYFAST_HOST}/eng/process`;
+  const action = `${payfastHost()}/eng/process`;
   const button =
     "padding:12px 18px;border:0;border-radius:10px;background:#7a2436;color:#fff;font-size:15px;cursor:pointer;";
 
@@ -125,11 +152,22 @@ export default async (req: Request) => {
 <div style="max-width:760px;margin:0 auto;padding:28px 18px;">
   <h1 style="font-size:20px;color:#611c2b;margin:0 0 6px;">Payfast handover check</h1>
   <p style="margin:0 0 20px;font-size:13px;color:#8f2f40;">
-    Mode: <strong>${escapeHtml(PAYFAST_CREDENTIALS.mode)}</strong> &middot;
+    Mode: <strong>${escapeHtml(payfastCredentials().mode)}</strong> &middot;
     posting to <strong>${escapeHtml(action)}</strong> &middot;
     passphrase configured: <strong>${hasPassphrase() ? "yes" : "no"}</strong> &middot;
     build: <strong>${escapeHtml((env("COMMIT_REF") || "unknown").slice(0, 7))}</strong>
   </p>
+
+  <h2 style="font-size:15px;color:#611c2b;">What this site can actually see</h2>
+  <p style="margin:0 0 10px;font-size:13px;color:#6b4450;">
+    A setting saved in the dashboard but missing here means it was saved on
+    another project, saved without the Functions scope, saved for a context
+    this deploy is not in, or saved after the last deploy. Environment
+    variables only take effect on a new deploy.
+  </p>
+  <div style="background:#fff;border-radius:12px;padding:14px 18px;overflow-x:auto;">
+    <table style="font-size:13px;border-collapse:collapse;">${settingsRows}</table>
+  </div>
 
   <h2 style="font-size:15px;color:#611c2b;">What would be posted</h2>
   <div style="background:#fff;border-radius:12px;padding:14px 18px;overflow-x:auto;">

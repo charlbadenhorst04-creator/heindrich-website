@@ -7,13 +7,40 @@
  */
 import crypto from "node:crypto";
 
-const PAYFAST_MODE = Netlify.env.get("PAYFAST_MODE") ?? "sandbox";
-const PAYFAST_MERCHANT_ID = Netlify.env.get("PAYFAST_MERCHANT_ID") ?? "10000100";
-const PAYFAST_MERCHANT_KEY = Netlify.env.get("PAYFAST_MERCHANT_KEY") ?? "46f0cd694581a";
-const PAYFAST_PASSPHRASE = Netlify.env.get("PAYFAST_PASSPHRASE") ?? "";
+import { env } from "./env.mts";
 
-export const PAYFAST_HOST =
-  PAYFAST_MODE === "live" ? "https://www.payfast.co.za" : "https://sandbox.payfast.co.za";
+/**
+ * Read per call, not once at import.
+ *
+ * These used to be module constants with Payfast's demo credentials as
+ * their fallback, which hid a real misconfiguration: when the merchant id
+ * was not reachable at runtime the site quietly used the demo account
+ * instead, and the only symptom was Payfast rejecting every payment with
+ * a blank 400 page. There is no fallback now - an unset variable reads as
+ * empty, which the shop treats as "no merchant account", closes checkout
+ * and says so.
+ */
+function merchantId(): string {
+  return env("PAYFAST_MERCHANT_ID");
+}
+
+function merchantKey(): string {
+  return env("PAYFAST_MERCHANT_KEY");
+}
+
+function passphrase(): string {
+  return env("PAYFAST_PASSPHRASE");
+}
+
+export function payfastMode(): string {
+  return env("PAYFAST_MODE", "sandbox");
+}
+
+export function payfastHost(): string {
+  return payfastMode() === "live"
+    ? "https://www.payfast.co.za"
+    : "https://sandbox.payfast.co.za";
+}
 
 function phpStyleEncode(value: string): string {
   return encodeURIComponent(value).replace(/%20/g, "+");
@@ -52,14 +79,12 @@ export function buildSignature(
 
 /** Whether a passphrase is configured, without revealing it. */
 export function hasPassphrase(): boolean {
-  return PAYFAST_PASSPHRASE !== "";
+  return passphrase() !== "";
 }
 
-export const PAYFAST_CREDENTIALS = {
-  merchantId: PAYFAST_MERCHANT_ID,
-  merchantKey: PAYFAST_MERCHANT_KEY,
-  mode: PAYFAST_MODE,
-};
+export function payfastCredentials() {
+  return { merchantId: merchantId(), merchantKey: merchantKey(), mode: payfastMode() };
+}
 
 /**
  * Validates an incoming ITN signature, accepting either Payfast
@@ -87,8 +112,8 @@ export function buildCheckoutFields(opts: {
   const lastName = rest.join(" ");
 
   const candidate: Record<string, string> = {
-    merchant_id: PAYFAST_MERCHANT_ID,
-    merchant_key: PAYFAST_MERCHANT_KEY,
+    merchant_id: merchantId(),
+    merchant_key: merchantKey(),
     return_url: opts.returnUrl,
     cancel_url: opts.cancelUrl,
     notify_url: opts.notifyUrl,
@@ -110,12 +135,12 @@ export function buildCheckoutFields(opts: {
     if (value !== "") fields[key] = value;
   }
 
-  fields.signature = buildSignature(fields, PAYFAST_PASSPHRASE);
+  fields.signature = buildSignature(fields, passphrase());
   return fields;
 }
 
 export async function verifyItnWithPayfast(rawBody: Record<string, string>): Promise<boolean> {
-  const response = await fetch(`${PAYFAST_HOST}/eng/query/validate`, {
+  const response = await fetch(`${payfastHost()}/eng/query/validate`, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams(rawBody).toString(),

@@ -4,7 +4,7 @@ import { readyDb, errorResponse, jsonResponse } from "./_shared/db.mts";
 import { env } from "./_shared/env.mts";
 import { paymentsStatus } from "./_shared/payments.mts";
 import { getOrCreateCart } from "./_shared/cart.mts";
-import { buildCheckoutFields, PAYFAST_HOST } from "./_shared/payfast.mts";
+import { buildCheckoutFields, payfastHost } from "./_shared/payfast.mts";
 import { COURIER_NAME, computeShippingFee } from "./_shared/shipping.mts";
 
 export default async (req: Request) => {
@@ -103,7 +103,7 @@ export default async (req: Request) => {
     notifyUrl: env("PAYFAST_NOTIFY_URL") || `${siteUrl}/api/payments/payfast/notify`,
   });
 
-  return jsonResponse({ order_id: orderId, action_url: `${PAYFAST_HOST}/eng/process`, fields });
+  return jsonResponse({ order_id: orderId, action_url: `${payfastHost()}/eng/process`, fields });
 };
 
 export const config: Config = {
