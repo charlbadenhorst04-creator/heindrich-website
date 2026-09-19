@@ -13,6 +13,22 @@
 [functions]
   external_node_modules = ["nodemailer"]
 
+# The storefront is a single-page app: the browser is handed index.html
+# once and React Router decides what to show from the address. Without
+# this rule Netlify looks for a real file at each path and finds none, so
+# every address except the homepage answers 404 - a shared product link, a
+# bookmarked /shop, anything Google indexes, and the page Payfast returns
+# a paying customer to. Mirrors `try_files ... /index.html` in
+# frontend/nginx.conf, which covers the Docker deployment.
+#
+# Left unforced (the default) so it yields to anything that already
+# exists: the API functions keep their own paths, and real files under
+# /assets and /images are still served as themselves.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
 # These mirror frontend/nginx.conf, which only applies to the Docker
 # deployment. Netlify serves the site itself, so the same protections have
 # to be declared here or they simply do not exist on this host.
