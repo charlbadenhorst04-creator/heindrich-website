@@ -1,6 +1,7 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { Route, Routes, useLocation } from "react-router-dom";
 
+import BrandBackdrop from "./components/BrandBackdrop";
 import Footer from "./components/Footer";
 import MascotAssistant from "./components/MascotAssistant";
 import Navbar from "./components/Navbar";
@@ -21,7 +22,10 @@ export default function App() {
 
   return (
     <ToastProvider>
-      <div className="flex min-h-screen flex-col">
+      <BrandBackdrop />
+      {/* Sits above the backdrop. Everything the shopper touches lives in
+          here, so nothing of theirs can end up behind the artwork. */}
+      <div className="relative z-10 flex min-h-screen flex-col">
         <ScrollToTop />
         <Navbar />
         <main className="flex-1">

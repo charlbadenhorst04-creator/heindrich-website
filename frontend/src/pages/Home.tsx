@@ -23,7 +23,7 @@ export default function Home() {
 
   return (
     <div>
-      <section className="relative overflow-hidden bg-gradient-to-b from-maroon-100 via-blush-100 to-blush-50">
+      <section className="relative overflow-hidden bg-gradient-to-b from-maroon-100/60 via-blush-100/50 to-blush-50/70">
         <div className="mx-auto flex max-w-7xl flex-col items-center px-4 py-20 text-center sm:px-6 lg:px-8 lg:py-32">
           <motion.p
             initial={{ opacity: 0, y: 10 }}
