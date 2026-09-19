@@ -10,11 +10,12 @@ import { motion, useReducedMotion } from "framer-motion";
  * it, heaviest in the middle where product cards and text sit.
  *
  * On a wide screen the whole artwork is shown: it is one composition, and
- * cropping it to fill cuts the figure off the right-hand side. A phone is
- * the other way round - the artwork is two and a half times wider than it
- * is tall, so fitting all of it on a portrait screen leaves a thin band
- * with an unreadable wordmark. There it fills the screen instead, centred
- * on the wordmark.
+ * cropping it to fill cuts the figure off the right-hand side. A phone
+ * gets a portrait crop of the same artwork instead - the name, the slogan
+ * and the four captions, nothing falling off the sides. The full banner is
+ * two and a half times wider than it is tall, so on a portrait screen it
+ * either shrinks to an unreadable band or is cropped so hard the slogan
+ * loses both ends.
  *
  * Fixed positioning rather than `background-attachment: fixed`, which iOS
  * Safari has never handled properly - it jumps on scroll and tears during
@@ -33,13 +34,8 @@ export default function BrandBackdrop() {
       // products in front of it.
       className="pointer-events-none fixed inset-0 z-0 overflow-hidden opacity-70 md:opacity-100"
     >
-      <motion.img
-        src="/images/meravo-banner.jpg"
-        alt=""
-        // Decorative, and never the reason to wait for the page.
-        loading="eager"
-        fetchPriority="low"
-        className="h-full w-full object-cover object-center md:object-contain"
+      <motion.picture
+        className="block h-full w-full"
         initial={{ opacity: 0, scale: 1.04 }}
         animate={
           stillness
@@ -56,7 +52,18 @@ export default function BrandBackdrop() {
                 scale: { duration: 48, repeat: Infinity, ease: "easeInOut" },
               }
         }
-      />
+      >
+        {/* Only the one that matches is fetched. */}
+        <source media="(min-width: 768px)" srcSet="/images/meravo-banner.jpg" />
+        <img
+          src="/images/meravo-banner-portrait.jpg"
+          alt=""
+          // Decorative, and never the reason to wait for the page.
+          loading="eager"
+          fetchPriority="low"
+          className="h-full w-full object-contain object-center"
+        />
+      </motion.picture>
 
       {/* Softens the middle of the screen, where the products and text
           sit, while letting the artwork stay legible towards the edges. */}

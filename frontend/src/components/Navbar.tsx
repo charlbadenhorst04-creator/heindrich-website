@@ -29,12 +29,18 @@ export default function Navbar() {
   return (
     <header className="sticky top-0 z-40 bg-blush-50/90 backdrop-blur border-b border-maroon-100">
       <nav className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6 lg:px-8">
-        <Link
-          to="/"
-          className="flex items-center gap-2 font-display text-2xl font-semibold tracking-wide text-maroon-700"
-        >
-          <Logo className="h-7 w-7 text-maroon-700" />
-          MERAVO
+        <Link to="/" className="flex items-center gap-2" aria-label="MERAVO - home">
+          <Logo className="h-7 w-7 shrink-0 text-maroon-700" />
+          {/* The brand's own lettering, lifted out of the banner artwork.
+              Sized in rem rather than by its pixel width so it keeps pace
+              with the nav links beside it on a small screen. */}
+          <img
+            src="/images/meravo-wordmark.png"
+            alt="MERAVO"
+            className="h-6 w-auto sm:h-7"
+            width={559}
+            height={232}
+          />
         </Link>
 
         <div className="hidden md:flex items-center gap-8">
