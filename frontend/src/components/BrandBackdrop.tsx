@@ -32,15 +32,15 @@ export default function BrandBackdrop() {
       // Held back a little on phones, where the artwork fills the screen
       // rather than sitting inside it and so competes harder with the
       // products in front of it.
-      className="pointer-events-none fixed inset-0 z-0 overflow-hidden opacity-70 md:opacity-100"
+      className="pointer-events-none fixed inset-0 z-0 overflow-hidden opacity-90 md:opacity-100"
     >
       <motion.picture
         className="block h-full w-full"
         initial={{ opacity: 0, scale: 1.04 }}
         animate={
           stillness
-            ? { opacity: 0.38, scale: 1 }
-            : { opacity: 0.38, scale: [1.02, 1.06, 1.02] }
+            ? { opacity: 0.58, scale: 1 }
+            : { opacity: 0.58, scale: [1.02, 1.06, 1.02] }
         }
         transition={
           stillness
@@ -67,7 +67,7 @@ export default function BrandBackdrop() {
 
       {/* Softens the middle of the screen, where the products and text
           sit, while letting the artwork stay legible towards the edges. */}
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_120%_90%_at_50%_45%,rgba(253,246,243,0.55)_0%,rgba(253,246,243,0.62)_45%,rgba(253,246,243,0.78)_80%,rgba(253,246,243,0.9)_100%)]" />
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_120%_90%_at_50%_45%,rgba(253,246,243,0.34)_0%,rgba(253,246,243,0.42)_45%,rgba(253,246,243,0.6)_80%,rgba(253,246,243,0.76)_100%)]" />
     </div>
   );
 }
