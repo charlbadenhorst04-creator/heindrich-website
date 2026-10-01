@@ -19,23 +19,6 @@ const PROVINCES = [
   "Western Cape",
 ];
 
-function submitPayfastForm(actionUrl: string, fields: Record<string, string>) {
-  const form = document.createElement("form");
-  form.method = "POST";
-  form.action = actionUrl;
-
-  for (const [key, value] of Object.entries(fields)) {
-    const input = document.createElement("input");
-    input.type = "hidden";
-    input.name = key;
-    input.value = value;
-    form.appendChild(input);
-  }
-
-  document.body.appendChild(form);
-  form.submit();
-}
-
 /**
  * Turns a South African number as it is normally written ("067 157 2670")
  * into the international form wa.me needs. Already-international numbers
@@ -69,10 +52,6 @@ export default function Checkout() {
   // Only an explicit false closes checkout, so a deployment whose API
   // predates this setting keeps taking payments as before.
   const paymentsOpen = shippingConfig?.payments_enabled !== false;
-  // Named on the button only when it is a name customers recognise. Stitch
-  // is the processor rather than a brand people look for, so its page is
-  // described by what it offers instead.
-  const viaStitch = shippingConfig?.payments_provider === "stitch";
 
   const [form, setForm] = useState({
     customer_name: "",
@@ -109,13 +88,9 @@ export default function Checkout() {
     setError(null);
     try {
       const response = await api.checkout({ session_key: sessionKey, ...form });
-      if ("redirect_url" in response) {
-        // Stitch: the payment page is Stitch's own, reached by address.
-        window.location.assign(response.redirect_url);
-      } else {
-        // Payfast: handed over by posting a signed form.
-        submitPayfastForm(response.action_url, response.fields);
-      }
+      // The payment page is Stitch's own; card details are entered there
+      // and never pass through this site.
+      window.location.assign(response.redirect_url);
     } catch (err) {
       // Surface what the API actually said - checkout re-checks stock and
       // availability, so this is often something the shopper can act on
@@ -220,16 +195,13 @@ export default function Checkout() {
                 {submitting
                   ? "Redirecting to secure payment..."
                   : shippingKnown()
-                    ? viaStitch
-                      ? `Pay ${formatZAR(grandTotal())} securely`
-                      : `Pay ${formatZAR(grandTotal())} with Payfast`
+                    ? `Pay ${formatZAR(grandTotal())} securely`
                     : "Continue to secure payment"}
               </button>
 
               <p className="text-center text-xs text-maroon-900/40">
-                {viaStitch
-                  ? "You'll go to a secure payment page to pay by card or straight from your bank account. Your card details never reach us."
-                  : "You'll be redirected to Payfast's secure page to complete payment by card, EFT or instant EFT."}
+                You'll go to a secure payment page to pay by card or straight from your bank account. Your card
+                details never reach us.
               </p>
             </>
           ) : (

@@ -87,9 +87,10 @@ CREATE TABLE IF NOT EXISTS orders (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- Added when Stitch joined Payfast as a provider. ADD COLUMN IF NOT EXISTS
--- so a database created before then is brought forward in place, with
--- existing orders read as Payfast ones, which is what they were.
+-- Added when Stitch replaced Payfast. ADD COLUMN IF NOT EXISTS so a database
+-- created before then is brought forward in place, with existing orders
+-- read as Payfast ones, which is what they were. payfast_payment_id above
+-- stays for the same reason: those rows are history, not dead weight.
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_provider TEXT NOT NULL DEFAULT 'payfast';
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS provider_reference TEXT NOT NULL DEFAULT '';
 CREATE INDEX IF NOT EXISTS idx_orders_provider_reference ON orders (provider_reference);

@@ -1,8 +1,7 @@
 /**
  * The public address of this shop, as seen by the customer making a request.
  *
- * Payment providers need absolute addresses to send the customer back to
- * and to confirm payments at. These used to be environment variables that
+ * Stitch needs an absolute address to send the customer back to. These used to be environment variables that
  * had to be edited by hand when the shop moved onto its own domain - and
  * forgetting one meant customers paid and the order was never marked paid.
  *
@@ -72,26 +71,7 @@ export function siteOrigin(req: Request): string {
   return (env("STORE_URL") || env("URL")).replace(/\/+$/, "");
 }
 
-/**
- * A provider URL: an explicit override when one is set, otherwise built on
- * the origin the customer is using.
- *
- * Kept for backwards compatibility with deployments that set the
- * PAYFAST_*_URL variables. They are no longer needed - and are ignored in
- * favour of the customer's own origin when that origin is recognised, so a
- * stale value left over from before the domain moved cannot strand a
- * customer on the old address with a cart they have already paid for.
- */
-export function providerUrl(req: Request, override: string, path: string): string {
-  const origin = siteOrigin(req);
-  const recognised = (() => {
-    try {
-      const host = new URL(req.url).host.toLowerCase();
-      return allowedHosts().has(host);
-    } catch {
-      return false;
-    }
-  })();
-  if (!recognised && override) return override;
-  return `${origin}${path}`;
+/** An absolute address on the origin the customer is using. */
+export function providerUrl(req: Request, path: string): string {
+  return `${siteOrigin(req)}${path}`;
 }

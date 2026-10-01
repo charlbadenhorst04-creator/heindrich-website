@@ -195,7 +195,7 @@ describe("order notification email", () => {
 
   it("does not throw when the mail server is unreachable", async () => {
     // The real failure this guards: a mail error propagating out of the
-    // Payfast callback, which would make Payfast retry a settled payment.
+    // payment confirmation, which would make Stitch retry a settled payment.
     configure({ SMTP_HOST: "127.0.0.1", SMTP_PORT: "1" });
 
     await sendOrderEmails(ORDER);

@@ -15,9 +15,11 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { before, test } from "node:test";
+import { after, before, test } from "node:test";
 
 import pg from "pg";
+
+import { startFakeStitch, type FakeStitch } from "./fake-stitch-server.mts";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const TEST_DB_URL =
@@ -25,19 +27,11 @@ const TEST_DB_URL =
   "postgresql://meravo:change-me@localhost:5432/meravo_netlify_test";
 
 const SMTP_PASSWORD = "super-secret-app-password";
-const PAYFAST_PASSPHRASE = "super-secret-passphrase";
-const PAYFAST_MERCHANT_KEY = "wxp2y88nzu9z8";
 const STITCH_SECRET = "super-secret-stitch-client-secret";
 const ACCOUNT_NUMBER = "62001234567";
 
 const envMap: Record<string, string> = {
   URL: "https://meravo.co.za",
-  PAYFAST_MODE: "sandbox",
-  // A real sandbox merchant rather than Payfast's published demo one, which
-  // the shop treats as "no account" and closes checkout for.
-  PAYFAST_MERCHANT_ID: "10054498",
-  PAYFAST_MERCHANT_KEY,
-  PAYFAST_PASSPHRASE,
   DATABASE_URL: TEST_DB_URL,
   SMTP_HOST: "smtp.gmail.com",
   SMTP_USERNAME: "shop@meravo.co.za",
@@ -47,7 +41,17 @@ const envMap: Record<string, string> = {
 // @ts-expect-error - the real Netlify runtime provides this global
 globalThis.Netlify = { env: { get: (key: string) => envMap[key] } };
 
+let fake: FakeStitch;
+
 before(async () => {
+  fake = await startFakeStitch();
+  Object.assign(envMap, {
+    STITCH_CLIENT_ID: "test-meravo",
+    STITCH_CLIENT_SECRET: STITCH_SECRET,
+    STITCH_TOKEN_URL: fake.tokenUrl,
+    STITCH_API_URL: fake.apiUrl,
+  });
+
   const migrationPath = path.join(
     __dirname,
     "../../database/migrations/20260905090000_init/migration.sql",
@@ -62,7 +66,12 @@ before(async () => {
   await client.end();
 });
 
+after(async () => {
+  await fake.close();
+});
+
 const healthFn = (await import("../health.mts")).default;
+const { forgetStitchTokenForTests } = await import("./stitch.mts");
 
 function request(accept?: string) {
   return new Request("https://meravo.co.za/api/health", {
@@ -81,7 +90,7 @@ test("reports a working shop as ready, and counts the real catalogue", async () 
   assert.equal(byName.Database.ok, true);
   assert.equal(byName.Catalogue.ok, true);
   assert.match(byName.Catalogue.detail, /\d+ products on sale/);
-  assert.match(byName.Payments.detail, /Payfast, sandbox mode/);
+  assert.match(byName.Payments.detail, /Stitch, with a TEST client/);
   assert.match(byName["Return address"].detail, /https:\/\/meravo\.co\.za/);
 });
 
@@ -92,8 +101,7 @@ test("never prints a password, a key or a passphrase", async () => {
 
   for (const body of [html, json]) {
     assert.ok(!body.includes(SMTP_PASSWORD), "an SMTP password reached the status page");
-    assert.ok(!body.includes(PAYFAST_PASSPHRASE), "a Payfast passphrase reached the status page");
-    assert.ok(!body.includes(PAYFAST_MERCHANT_KEY), "a Payfast merchant key reached the status page");
+    assert.ok(!body.includes(STITCH_SECRET), "the Stitch client secret reached the status page");
     assert.ok(!body.includes(TEST_DB_URL), "a database connection string reached the status page");
   }
 });
@@ -130,24 +138,7 @@ test("says which variable is missing rather than just failing", async () => {
     assert.equal(byName["Order emails"].warning, true);
   } finally {
     Object.assign(envMap, previous);
-  }
-});
-
-test("warns when live mode is still pointed at Payfast's test account", async () => {
-  // Going live with the sandbox merchant means every sale is fake money.
-  const previous = envMap.PAYFAST_MODE;
-  const previousId = envMap.PAYFAST_MERCHANT_ID;
-  envMap.PAYFAST_MODE = "live";
-  envMap.PAYFAST_MERCHANT_ID = "10000100";
-  try {
-    const body = await (await healthFn(request())).json();
-    const credentials = body.checks.find((c: any) => c.name === "Payfast credentials");
-    assert.ok(credentials, "no warning about the sandbox merchant id in live mode");
-    assert.equal(credentials.ok, false);
-    assert.equal(body.ready, false);
-  } finally {
-    envMap.PAYFAST_MODE = previous;
-    envMap.PAYFAST_MERCHANT_ID = previousId;
+    forgetStitchTokenForTests();
   }
 });
 
@@ -176,35 +167,9 @@ test("accepts a connection string under any of the supported names", async () =>
   }
 });
 
-test("the Payfast test bench refuses to run in live mode", async () => {
-  // It prints the exact string a payment is signed from, which is all
-  // someone would need to forge one against a real merchant account.
-  const previous = envMap.PAYFAST_MODE;
-  try {
-    const { default: payfastCheck } = await import("../payfast-check.mts");
-
-    const sandbox = await payfastCheck(new Request("https://meravo.co.za/api/payfast-check"));
-    assert.equal(sandbox.status, 200);
-    const body = await sandbox.text();
-    assert.ok(!body.includes(PAYFAST_PASSPHRASE), "the passphrase was printed");
-    assert.match(body, /merchant_id/);
-
-    envMap.PAYFAST_MODE = "live";
-    // PAYFAST_MODE is read when the module first loads, so a fresh copy is
-    // needed to see the change - the same as a new deploy would be.
-    const { default: liveCheck } = await import(`../payfast-check.mts?live=${Date.now()}`);
-    const live = await liveCheck(new Request("https://meravo.co.za/api/payfast-check"));
-    assert.equal(live.status, 404, "the test bench was reachable on a live store");
-  } finally {
-    envMap.PAYFAST_MODE = previous;
-  }
-});
-
 test("with Stitch configured, it actually asks Stitch whether the credentials work", async () => {
   // A mistyped secret looks exactly like a correct one until a customer
   // tries to pay. This is the check that catches it first.
-  const { startFakeStitch } = await import("./fake-stitch-server.mts");
-  const { forgetStitchTokenForTests } = await import("./stitch.mts");
   const fake = await startFakeStitch();
   const previous = { ...envMap };
   Object.assign(envMap, {
@@ -253,8 +218,8 @@ test("with Stitch configured, it actually asks Stitch whether the credentials wo
 
 test("with no payment account at all, it says checkout is closed and how to open it", async () => {
   const previous = { ...envMap };
-  envMap.PAYFAST_MERCHANT_ID = "";
-  envMap.PAYFAST_MERCHANT_KEY = "";
+  delete envMap.STITCH_CLIENT_ID;
+  delete envMap.STITCH_CLIENT_SECRET;
   try {
     const body = await (await healthFn(request())).json();
     const payments = body.checks.find((c: any) => c.name === "Payments");
@@ -263,5 +228,6 @@ test("with no payment account at all, it says checkout is closed and how to open
     assert.match(payments.detail, /WhatsApp/);
   } finally {
     Object.assign(envMap, previous);
+    forgetStitchTokenForTests();
   }
 });

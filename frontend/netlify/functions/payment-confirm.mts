@@ -7,9 +7,6 @@
  * the URL, but Stitch's own documentation warns that status can be tampered
  * with - so it is never read here. Only the order id is taken from the
  * caller, and all that does is choose which order to go and check.
- *
- * For a Payfast order it just reports: Payfast's confirmation arrives on
- * its own, server to server, at /api/payments/payfast/notify.
  */
 import type { Config } from "@netlify/functions";
 
@@ -36,6 +33,8 @@ export default async (req: Request) => {
   const order = orders[0];
 
   let status: string = order.status;
+  // Orders from before Stitch (test orders) have no Stitch reference and
+  // are simply reported as they stand.
   if (order.payment_provider === "stitch" && status !== "paid" && stitchConfigured()) {
     try {
       status = await reconcileStitchOrder(database, order);

@@ -110,7 +110,7 @@ export default function Home() {
           </div>
           <div>
             <p className="font-display text-2xl">Secure Checkout</p>
-            <p className="mt-2 text-sm text-blush-100/80">Payments processed securely via Payfast.</p>
+            <p className="mt-2 text-sm text-blush-100/80">Pay securely by card or straight from your bank.</p>
           </div>
           <div>
             <p className="font-display text-2xl">Real Support</p>

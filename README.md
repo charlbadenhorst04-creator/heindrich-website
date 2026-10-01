@@ -552,13 +552,14 @@ npm run test:functions
 
 `netlify.toml` and `frontend/netlify/` configure a second, independent
 deployment target: a Node/TypeScript mirror of the same API — same schema,
-same Payfast flow, same shipping rules, same order emails — backed by
-Postgres (Netlify DB / Neon). It needs no server of your own, which is why
-meravo.co.za runs on it. See **NEXT-STEPS.md** for the launch steps.
+same shipping rules, same order emails — backed by Postgres (Netlify DB /
+Neon). It needs no server of your own, which is why meravo.co.za runs on
+it. **It takes payment through Stitch, not Payfast** (below). See
+**NEXT-STEPS.md** for the launch steps.
 
-To deploy: create a Netlify site, link this repository, and set the
-`PAYFAST_*` variables (and the `SMTP_*` ones above, for order emails) in
-the Netlify UI. The build picks up `netlify.toml` automatically, and the
+To deploy: create a Netlify site, link this repository, and set
+`DATABASE_URL`, the `STITCH_*` variables (and the `SMTP_*` ones above, for
+order emails) in the Netlify UI. The build picks up `netlify.toml` automatically, and the
 first request after a database is connected creates the tables and seeds
 the catalogue by itself (`_shared/schema.mts`).
 
@@ -577,31 +578,32 @@ so a wrong secret shows up here first), and whether order emails are on — plus
 missing. It reports only whether a setting exists, never its value, so it
 is safe to leave reachable, and a test locks that down.
 
-**Payments close themselves when there is no merchant account.** Payfast
-cannot process anything on its published demo credentials, and a checkout
-that ends at Payfast's blank "400 Bad Request" page is worse than one that
-says so. So `_shared/payments.mts` treats a missing merchant id, a missing
-key, or Payfast's demo id as "not taking cards yet": the checkout offers a
+**Payments close themselves when there is no Stitch account.** A checkout
+that ends at a payment provider's error page is worse than one that says
+so. So `_shared/payments.mts` treats a missing `STITCH_CLIENT_ID` or
+`STITCH_CLIENT_SECRET` as "not taking cards yet": the checkout offers a
 WhatsApp handover with the basket filled in, and the API refuses the order
-rather than recording one nobody can pay for. Put real credentials in and
-it opens again on its own; `PAYMENTS_ENABLED` forces it either way.
+rather than recording one nobody can pay for. Put the credentials in and it
+opens on its own; `PAYMENTS_ENABLED=false` closes it by hand (it cannot
+force checkout open without credentials).
 **Not yet mirrored in the FastAPI backend** - the Docker deployment still
 shows the pay button regardless.
 
 ### Stitch (Netlify deployment only)
 
-The Netlify functions can take payment through **Stitch** (stitch.money) as
-well as Payfast: card and Pay by Bank on Stitch's hosted page, created with
-`clientPaymentInitiationRequestCreate`. Whichever provider has real
-credentials is used, Stitch first; `PAYMENT_PROVIDER=stitch|payfast` pins
-one. Setup is in **NEXT-STEPS.md**. The pieces:
+The Netlify functions take payment through **Stitch** (stitch.money) only:
+card and Pay by Bank on Stitch's hosted page, created with
+`clientPaymentInitiationRequestCreate`. Payfast was removed from this
+deployment; leftover `PAYFAST_*` variables are ignored. Orders paid
+through Payfast before then keep `payment_provider = 'payfast'` in the
+database. Setup is in **NEXT-STEPS.md**. The pieces:
 
 | File | Does |
 | --- | --- |
 | `_shared/stitch.mts` | client token (cached), create request, read state, webhook signatures |
 | `_shared/reconcile.mts` | asks Stitch what really happened and settles the order |
-| `_shared/settle.mts` | marks paid exactly once (conditional UPDATE), stock, emails — both providers |
-| `_shared/origin.mts` | return/notify addresses from the customer's own (allowlisted) domain |
+| `_shared/settle.mts` | marks paid exactly once (conditional UPDATE), stock, emails |
+| `_shared/origin.mts` | the return address, from the customer's own (allowlisted) domain |
 | `payment-confirm.mts` | `POST /api/payments/confirm` — the return page's check |
 | `stitch-webhook.mts` | `POST /api/payments/stitch/webhook` |
 
@@ -623,7 +625,8 @@ and the live API is a setting rather than a code change.
 Tests run against `_shared/fake-stitch-server.mts`, a stand-in Stitch over
 real HTTP (`stitch.test.mts`, `stitch-flow.test.mts`).
 
-**Not in the FastAPI backend.** The Docker deployment is Payfast only.
+**Not in the FastAPI backend.** The Docker deployment is still Payfast
+only, so the two deployments differ here.
 
 The two deployments are kept in sync by hand, so a change to one is a
 change to both. Guard rails for that:

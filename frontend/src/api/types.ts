@@ -47,11 +47,12 @@ export interface CheckoutPayload {
   phone?: string;
 }
 
-/** Payfast is handed over by posting a signed form; Stitch by redirecting
- * to its hosted page. */
-export type CheckoutResponse =
-  | { order_id: string; provider?: "payfast"; action_url: string; fields: Record<string, string> }
-  | { order_id: string; provider: "stitch"; redirect_url: string };
+/** The customer is sent to Stitch's hosted payment page at redirect_url. */
+export interface CheckoutResponse {
+  order_id: string;
+  provider: "stitch";
+  redirect_url: string;
+}
 
 export interface PaymentConfirmation {
   order_id: string;
@@ -90,7 +91,7 @@ export interface ShippingConfig {
   // Absent on deployments that predate the payments switch, so anything
   // other than an explicit false means the shop is taking card payments.
   payments_enabled?: boolean;
-  payments_provider?: "stitch" | "payfast" | null;
+  payments_provider?: "stitch" | null;
   payments_message?: string;
   whatsapp_number?: string;
 }

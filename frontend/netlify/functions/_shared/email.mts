@@ -1,14 +1,14 @@
 /**
  * Order notification email - Netlify mirror of backend/app/services/email.py.
  *
- * Two messages go out the moment Payfast confirms a payment: one to the
+ * Two messages go out the moment Stitch confirms a payment: one to the
  * shop owner so they know to pack and ship, and one to the customer as
  * their receipt.
  *
  * Nothing in here is allowed to break a payment. Every send is wrapped, so
  * a misconfigured or unreachable mail server logs a warning and nothing
- * more. If a mail failure propagated, the Payfast callback would answer
- * with an error, Payfast would retry it, and a real paid order could be
+ * more. If a mail failure propagated, the payment confirmation would answer
+ * with an error, Stitch would retry it, and a real paid order could be
  * left unconfirmed.
  */
 import nodemailer from "nodemailer";
@@ -290,8 +290,8 @@ async function send(message: BuiltEmail): Promise<void> {
     secure: cfg.useTls && cfg.port === 465,
     requireTLS: cfg.useTls && cfg.port !== 465,
     auth: cfg.username ? { user: cfg.username, pass: cfg.password } : undefined,
-    // A function that never returns holds the Payfast callback open until
-    // it times out, which makes Payfast retry a payment it already has.
+    // A function that never returns holds the payment confirmation open
+    // until it times out, which makes Stitch retry a payment it already has.
     connectionTimeout: 10_000,
     greetingTimeout: 10_000,
     socketTimeout: 15_000,

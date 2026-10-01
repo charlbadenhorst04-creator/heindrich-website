@@ -6,7 +6,7 @@
  * that by default: without a fallback rule it looks for a real file at
  * each path, finds none, and answers 404. That broke every shared product
  * link, every bookmark past the homepage, and - how it was noticed - the
- * page Payfast returns a paying customer to after they have handed over
+ * page Stitch returns a paying customer to after they have handed over
  * their money.
  */
 
@@ -54,7 +54,7 @@ test("every route the app defines is covered by that fallback", async () => {
   const routes = [...app.matchAll(/<Route\s+path="([^"]+)"/g)].map((m) => m[1]);
 
   assert.ok(routes.length >= 5, `expected the app's routes, found ${routes.length}`);
-  assert.ok(routes.includes("/order-success"), "the Payfast return page must be a route");
+  assert.ok(routes.includes("/order-success"), "the payment return page must be a route");
 
   const toml = await netlifyToml();
   const rules = [...toml.matchAll(/from\s*=\s*"([^"]+)"/g)].map((m) => m[1]);

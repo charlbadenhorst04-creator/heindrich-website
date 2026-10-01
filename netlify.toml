@@ -17,7 +17,7 @@
 # once and React Router decides what to show from the address. Without
 # this rule Netlify looks for a real file at each path and finds none, so
 # every address except the homepage answers 404 - a shared product link, a
-# bookmarked /shop, anything Google indexes, and the page Payfast returns
+# bookmarked /shop, anything Google indexes, and the page Stitch returns
 # a paying customer to. Mirrors `try_files ... /index.html` in
 # frontend/nginx.conf, which covers the Docker deployment.
 #
@@ -40,11 +40,11 @@
     X-Frame-Options = "SAMEORIGIN"
     Referrer-Policy = "strict-origin-when-cross-origin"
     Permissions-Policy = "camera=(), microphone=(), geolocation=(), payment=()"
-    # form-action MUST keep the Payfast hosts: checkout works by POSTing a
-    # signed form to Payfast's hosted page, and dropping them here would
-    # block every payment. style-src needs 'unsafe-inline' because Framer
-    # Motion animates via inline styles; script-src deliberately does not.
-    Content-Security-Policy = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: https:; connect-src 'self'; form-action 'self' https://www.payfast.co.za https://sandbox.payfast.co.za; frame-ancestors 'none'; base-uri 'self'; object-src 'none'"
+    # Checkout reaches Stitch's payment page by an ordinary redirect, not a
+    # form post, so form-action stays 'self'. style-src needs
+    # 'unsafe-inline' because Framer Motion animates via inline styles;
+    # script-src deliberately does not.
+    Content-Security-Policy = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: https:; connect-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'self'; object-src 'none'"
 
 # Vite fingerprints these filenames with a content hash, so a changed file
 # always arrives under a new name. Safe to cache hard and never revalidate.

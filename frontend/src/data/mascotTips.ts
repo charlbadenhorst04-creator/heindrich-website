@@ -4,6 +4,6 @@ export const mascotTips: string[] = [
   "New in this week ✨",
   "Free delivery over R1,000",
   "Nationwide shipping via Aramex",
-  "Secure checkout with Payfast",
+  "Secure checkout by card or bank",
   "Need help? I'm right here.",
 ];

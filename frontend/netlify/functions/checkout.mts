@@ -1,11 +1,9 @@
 import crypto from "node:crypto";
 import type { Config } from "@netlify/functions";
 import { readyDb, errorResponse, jsonResponse } from "./_shared/db.mts";
-import { env } from "./_shared/env.mts";
 import { providerUrl } from "./_shared/origin.mts";
 import { paymentsStatus } from "./_shared/payments.mts";
 import { getOrCreateCart } from "./_shared/cart.mts";
-import { buildCheckoutFields, payfastHost } from "./_shared/payfast.mts";
 import { StitchError, createPaymentRequest } from "./_shared/stitch.mts";
 import { COURIER_NAME, computeShippingFee } from "./_shared/shipping.mts";
 
@@ -73,7 +71,7 @@ export default async (req: Request) => {
   const shippingFee = computeShippingFee(subtotal);
   const total = subtotal + shippingFee;
 
-  const provider = payments.provider ?? "payfast";
+  const provider = "stitch";
   const orderId = crypto.randomUUID();
   await database.sql`
     INSERT INTO orders (
@@ -93,54 +91,29 @@ export default async (req: Request) => {
     `;
   }
 
-  if (provider === "stitch") {
-    // The order id goes back in as externalReference rather than on the
-    // return address: Stitch matches redirect_uri against a whitelist, and a
-    // query string per order would never match it.
-    try {
-      const request = await createPaymentRequest({
-        orderId,
-        amount: total,
-        returnUrl: providerUrl(req, "", "/order-success"),
-      });
-      await database.sql`
-        UPDATE orders SET provider_reference = ${request.id} WHERE id = ${orderId}
-      `;
-      return jsonResponse({ order_id: orderId, provider, redirect_url: request.redirectUrl });
-    } catch (error) {
-      // The order row stays (pending, no reference) so the attempt is on
-      // record, but the customer gets a plain answer rather than a 500.
-      console.error(`Order ${orderId}: could not create the Stitch payment`, error);
-      const detail =
-        error instanceof StitchError
-          ? "We couldn't open the secure payment page just now. Please try again in a moment."
-          : "Something went wrong preparing your payment. Please try again.";
-      return errorResponse(detail, 502);
-    }
+  // The order id goes back in as externalReference rather than on the
+  // return address: Stitch matches redirect_uri against a whitelist, and a
+  // query string per order would never match it.
+  try {
+    const request = await createPaymentRequest({
+      orderId,
+      amount: total,
+      returnUrl: providerUrl(req, "/order-success"),
+    });
+    await database.sql`
+      UPDATE orders SET provider_reference = ${request.id} WHERE id = ${orderId}
+    `;
+    return jsonResponse({ order_id: orderId, provider, redirect_url: request.redirectUrl });
+  } catch (error) {
+    // The order row stays (pending, no reference) so the attempt is on
+    // record, but the customer gets a plain answer rather than a 500.
+    console.error(`Order ${orderId}: could not create the Stitch payment`, error);
+    const detail =
+      error instanceof StitchError
+        ? "We couldn't open the secure payment page just now. Please try again in a moment."
+        : "Something went wrong preparing your payment. Please try again.";
+    return errorResponse(detail, 502);
   }
-
-  // The addresses follow whichever domain the customer is on, so nothing
-  // here needs changing when the shop moves to meravo.co.za. The PAYFAST_*
-  // variables are honoured only when the request's host is unrecognised.
-  const fields = buildCheckoutFields({
-    orderId,
-    amount: total,
-    itemName: `MERAVO order ${orderId}`,
-    customerEmail,
-    customerName,
-    // Payfast returns the customer to this address exactly as given, so the
-    // order id has to be on it for the success page to find the order.
-    returnUrl: providerUrl(req, env("PAYFAST_RETURN_URL") && `${env("PAYFAST_RETURN_URL")}?order=${orderId}`, `/order-success?order=${orderId}`),
-    cancelUrl: providerUrl(req, env("PAYFAST_CANCEL_URL"), "/cart"),
-    notifyUrl: providerUrl(req, env("PAYFAST_NOTIFY_URL"), "/api/payments/payfast/notify"),
-  });
-
-  return jsonResponse({
-    order_id: orderId,
-    provider: "payfast",
-    action_url: `${payfastHost()}/eng/process`,
-    fields,
-  });
 };
 
 export const config: Config = {

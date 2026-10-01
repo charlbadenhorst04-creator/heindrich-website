@@ -1,8 +1,7 @@
 /**
- * What happens when a payment is confirmed, whichever provider confirmed it.
+ * What happens when a payment is confirmed.
  *
- * Both Payfast and Stitch can confirm the same payment more than once, and
- * Stitch confirms it down two independent paths at once: the customer's
+ * Stitch confirms the same payment down two independent paths at once: the customer's
  * browser coming back from the payment page, and Stitch's own webhook. Those
  * routinely arrive within milliseconds of each other.
  *

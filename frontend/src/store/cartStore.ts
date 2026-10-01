@@ -78,7 +78,7 @@ export const useCartStore = create<CartState>((set, get) => ({
   // Whether the shipping rules were actually loaded from the API. Without
   // this the UI cannot tell "shipping is free" apart from "we don't know
   // the shipping cost yet", and would quote a total lower than the amount
-  // the backend goes on to charge at Payfast.
+  // the backend goes on to charge.
   shippingKnown: () => get().shippingConfig !== null,
 
   shippingFee: () => {

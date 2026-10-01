@@ -8,10 +8,9 @@ Last updated 1 October.
 
 - Products, cart, shipping (R99 Aramex, free over R1 500), checkout and
   orders all work, on a real database.
-- **Two payment providers are built in: Stitch and Payfast.** The shop uses
-  whichever one has real credentials — Stitch first if both do. The moment
-  either account is approved and its details are added, card payments
-  switch on by themselves.
+- **Payments go through Stitch** (card and Pay by Bank). Payfast has been
+  taken out. The moment the Stitch account is approved and its details are
+  added, card payments switch on by themselves.
 - Until then, checkout says so plainly and offers a **WhatsApp button with
   the customer's basket and total already written out**, so orders still
   come in.
@@ -118,13 +117,6 @@ credentials."** If it shows a red line, it says what is wrong.
 Then swap `STITCH_CLIENT_ID` and `STITCH_CLIENT_SECRET` for the **live**
 client's, redeploy, and the shop takes real money.
 
-### If Payfast gets approved first instead
-
-Put the real `PAYFAST_MERCHANT_ID`, `PAYFAST_MERCHANT_KEY` and
-`PAYFAST_PASSPHRASE` in, set `PAYFAST_MODE` to `live`, redeploy. Same
-result. If both are configured later, Stitch takes over; to keep Payfast,
-add `PAYMENT_PROVIDER = payfast`.
-
 ---
 
 ## 3. Order emails — optional, about 10 minutes
@@ -151,9 +143,11 @@ Redeploy. The "Order emails" line on `/api/health` turns green.
 
 ## Housekeeping, when there's time
 
-- **Delete the old URL settings** `PAYFAST_RETURN_URL`, `PAYFAST_CANCEL_URL`,
-  `PAYFAST_NOTIFY_URL` and `STORE_URL` in Netlify. They are no longer needed
-  and are ignored whenever the shop recognises the address it's on.
+- **Delete the old Payfast settings** in Netlify — every variable starting
+  with `PAYFAST_` (`PAYFAST_MODE`, `PAYFAST_MERCHANT_ID`,
+  `PAYFAST_MERCHANT_KEY`, `PAYFAST_PASSPHRASE`, `PAYFAST_RETURN_URL`,
+  `PAYFAST_CANCEL_URL`, `PAYFAST_NOTIFY_URL`), plus `STORE_URL` and
+  `PAYMENT_PROVIDER` if they are there. The shop ignores them now.
 - **Rotate the database password.** The current one was pasted into a chat.
   Neon → Reset password → paste the new connection string into
   `DATABASE_URL` → redeploy.

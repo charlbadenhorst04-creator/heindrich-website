@@ -15,13 +15,10 @@ type View = "checking" | "paid" | "confirming" | "not-completed" | "failed" | "m
 
 export default function OrderSuccess() {
   const [searchParams] = useSearchParams();
-  // Payfast returns to the address we gave it, which carries ?order=.
-  // Stitch adds externalReference (our order id), id and status itself.
+  // Stitch adds externalReference (our order id), id and status to the
+  // return address itself.
   const orderId =
-    searchParams.get("order") ??
-    searchParams.get("externalReference") ??
-    searchParams.get("m_payment_id") ??
-    searchParams.get("order_id");
+    searchParams.get("externalReference") ?? searchParams.get("order") ?? searchParams.get("order_id");
   // What the payment page said on the way back. Only ever used to choose
   // wording - anyone can edit a URL, so it decides nothing about money.
   const returnedStatus = searchParams.get("status");
