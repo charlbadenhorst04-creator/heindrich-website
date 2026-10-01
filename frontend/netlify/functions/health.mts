@@ -15,6 +15,9 @@ import type { Config } from "@netlify/functions";
 
 import { CONNECTION_STRING_VARIABLES, connectionString, readyDb } from "./_shared/db.mts";
 import { env, hasEnv } from "./_shared/env.mts";
+import { siteOrigin } from "./_shared/origin.mts";
+import { paymentsStatus } from "./_shared/payments.mts";
+import { clientToken, configuredBeneficiary, looksLikeTestClient } from "./_shared/stitch.mts";
 
 interface Check {
   name: string;
@@ -72,28 +75,14 @@ async function databaseChecks(): Promise<Check[]> {
   }
 }
 
-function payfastChecks(): Check[] {
-  const mode = env("PAYFAST_MODE", "sandbox");
-  const live = mode === "live";
+async function paymentChecks(req: Request): Promise<Check[]> {
   const checks: Check[] = [];
+  const status = paymentsStatus();
 
-  const credentials = ["PAYFAST_MERCHANT_ID", "PAYFAST_MERCHANT_KEY"].filter(
-    (key) => !hasEnv(key),
-  );
-  checks.push({
-    name: "Payfast",
-    ok: credentials.length === 0,
-    detail:
-      credentials.length === 0
-        ? live
-          ? "Live mode - real payments will be taken."
-          : "Sandbox mode - test payments only. No real money moves."
-        : `Missing: ${credentials.join(", ")}.`,
-  });
-
-  // The single most expensive mistake available here: going live while
-  // still pointed at Payfast's test merchant, so every "sale" is fake.
-  if (live && env("PAYFAST_MERCHANT_ID") === "10000100") {
+  // The single most expensive mistake available: going live on Payfast's
+  // published demo merchant, so every "sale" is fake money. Checked first
+  // and regardless of which provider is active.
+  if (env("PAYFAST_MODE") === "live" && env("PAYFAST_MERCHANT_ID") === "10000100") {
     checks.push({
       name: "Payfast credentials",
       ok: false,
@@ -104,16 +93,87 @@ function payfastChecks(): Check[] {
     });
   }
 
-  const notifyUrl = env("PAYFAST_NOTIFY_URL");
+  if (!status.enabled) {
+    checks.push({
+      name: "Payments",
+      ok: false,
+      detail:
+        "Not taking card payments yet - checkout offers WhatsApp instead. " +
+        "Add STITCH_CLIENT_ID and STITCH_CLIENT_SECRET from Stitch (or real " +
+        "Payfast credentials) and redeploy, and checkout opens by itself.",
+    });
+    return checks;
+  }
+
+  if (status.provider === "stitch") {
+    checks.push({
+      name: "Payments",
+      ok: true,
+      detail: looksLikeTestClient()
+        ? "Stitch, with a TEST client - payments are simulated and no real money moves. Swap in the live client's id and secret to take real payments."
+        : "Stitch - card and Pay by Bank on Stitch's secure page.",
+    });
+
+    // Actually asks Stitch, rather than only checking a variable exists:
+    // a mistyped secret looks exactly like a correct one until a customer
+    // tries to pay. The token is cached, so this is not a call per visit.
+    try {
+      await clientToken();
+      checks.push({ name: "Stitch connection", ok: true, detail: "Stitch accepted the credentials." });
+    } catch (error) {
+      checks.push({
+        name: "Stitch connection",
+        ok: false,
+        detail: `${message(error)}. Check STITCH_CLIENT_ID and STITCH_CLIENT_SECRET.`,
+      });
+    }
+
+    try {
+      const account = configuredBeneficiary();
+      checks.push({
+        name: "Settlement account",
+        ok: true,
+        detail: account
+          ? // Never the whole number - this page is public.
+            `Paid into the ${account.bankId.toUpperCase()} account ending ${account.accountNumber.slice(-4)}.`
+          : "Paid into the account Stitch holds for the business.",
+      });
+    } catch (error) {
+      checks.push({ name: "Settlement account", ok: false, detail: message(error) });
+    }
+
+    checks.push(
+      hasEnv("STITCH_WEBHOOK_SECRET")
+        ? { name: "Stitch webhook", ok: true, detail: "Set - payments are confirmed even if the customer closes the page before coming back." }
+        : {
+            name: "Stitch webhook",
+            ok: false,
+            warning: true,
+            detail:
+              "No STITCH_WEBHOOK_SECRET. Payments still settle when the customer " +
+              "returns to the shop, but someone who pays and then closes the tab " +
+              "stays 'pending' until you check. Add a webhook at Stitch for the " +
+              `"payment" event pointing at ${siteOrigin(req)}/api/payments/stitch/webhook, ` +
+              "and put its secret here.",
+          },
+    );
+  } else {
+    const live = env("PAYFAST_MODE", "sandbox") === "live";
+    checks.push({
+      name: "Payments",
+      ok: true,
+      detail: live
+        ? "Payfast, live mode - real payments will be taken."
+        : "Payfast, sandbox mode - test payments only. No real money moves.",
+    });
+  }
+
   checks.push({
-    name: "Payment confirmation",
-    ok: notifyUrl.startsWith("https://"),
-    detail: notifyUrl
-      ? notifyUrl.startsWith("https://")
-        ? `Payfast will confirm payments to ${notifyUrl}`
-        : `PAYFAST_NOTIFY_URL is "${notifyUrl}". It has to be a public https:// ` +
-          "address or orders will never be marked paid."
-      : "PAYFAST_NOTIFY_URL is not set, so orders will never be marked paid.",
+    name: "Return address",
+    ok: true,
+    detail:
+      "Customers are sent back to whichever address they are shopping on - " +
+      `for this visit, ${siteOrigin(req)}. Nothing to change when the domain moves.`,
   });
 
   return checks;
@@ -187,7 +247,7 @@ function htmlPage(checks: Check[], ready: boolean): string {
 }
 
 export default async (req: Request) => {
-  const checks = [...(await databaseChecks()), ...payfastChecks(), emailCheck()];
+  const checks = [...(await databaseChecks()), ...(await paymentChecks(req)), emailCheck()];
   // Warnings describe things the shop can run without, so they do not by
   // themselves mean it is broken.
   const ready = checks.every((check) => check.ok || check.warning);

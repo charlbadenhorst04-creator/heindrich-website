@@ -26,14 +26,18 @@ const TEST_DB_URL =
 
 const SMTP_PASSWORD = "super-secret-app-password";
 const PAYFAST_PASSPHRASE = "super-secret-passphrase";
+const PAYFAST_MERCHANT_KEY = "wxp2y88nzu9z8";
+const STITCH_SECRET = "super-secret-stitch-client-secret";
+const ACCOUNT_NUMBER = "62001234567";
 
 const envMap: Record<string, string> = {
   URL: "https://meravo.co.za",
   PAYFAST_MODE: "sandbox",
-  PAYFAST_MERCHANT_ID: "10000100",
-  PAYFAST_MERCHANT_KEY: "46f0cd694581a",
+  // A real sandbox merchant rather than Payfast's published demo one, which
+  // the shop treats as "no account" and closes checkout for.
+  PAYFAST_MERCHANT_ID: "10054498",
+  PAYFAST_MERCHANT_KEY,
   PAYFAST_PASSPHRASE,
-  PAYFAST_NOTIFY_URL: "https://meravo.co.za/api/payments/payfast/notify",
   DATABASE_URL: TEST_DB_URL,
   SMTP_HOST: "smtp.gmail.com",
   SMTP_USERNAME: "shop@meravo.co.za",
@@ -77,7 +81,8 @@ test("reports a working shop as ready, and counts the real catalogue", async () 
   assert.equal(byName.Database.ok, true);
   assert.equal(byName.Catalogue.ok, true);
   assert.match(byName.Catalogue.detail, /\d+ products on sale/);
-  assert.match(byName.Payfast.detail, /Sandbox mode/);
+  assert.match(byName.Payments.detail, /Payfast, sandbox mode/);
+  assert.match(byName["Return address"].detail, /https:\/\/meravo\.co\.za/);
 });
 
 test("never prints a password, a key or a passphrase", async () => {
@@ -88,7 +93,7 @@ test("never prints a password, a key or a passphrase", async () => {
   for (const body of [html, json]) {
     assert.ok(!body.includes(SMTP_PASSWORD), "an SMTP password reached the status page");
     assert.ok(!body.includes(PAYFAST_PASSPHRASE), "a Payfast passphrase reached the status page");
-    assert.ok(!body.includes("46f0cd694581a"), "a Payfast merchant key reached the status page");
+    assert.ok(!body.includes(PAYFAST_MERCHANT_KEY), "a Payfast merchant key reached the status page");
     assert.ok(!body.includes(TEST_DB_URL), "a database connection string reached the status page");
   }
 });
@@ -113,7 +118,6 @@ test("says which variable is missing rather than just failing", async () => {
   // What someone launching actually needs: the name of the thing to set.
   const previous = { ...envMap };
   delete envMap.DATABASE_URL;
-  delete envMap.PAYFAST_NOTIFY_URL;
   delete envMap.SMTP_HOST;
   try {
     const body = await (await healthFn(request())).json();
@@ -122,7 +126,6 @@ test("says which variable is missing rather than just failing", async () => {
     const byName = Object.fromEntries(body.checks.map((c: any) => [c.name, c]));
     assert.equal(byName.Database.ok, false);
     assert.match(byName.Database.detail, /DATABASE_URL/);
-    assert.match(byName["Payment confirmation"].detail, /PAYFAST_NOTIFY_URL/);
     // Email is optional, so its absence is flagged without blocking launch.
     assert.equal(byName["Order emails"].warning, true);
   } finally {
@@ -133,7 +136,9 @@ test("says which variable is missing rather than just failing", async () => {
 test("warns when live mode is still pointed at Payfast's test account", async () => {
   // Going live with the sandbox merchant means every sale is fake money.
   const previous = envMap.PAYFAST_MODE;
+  const previousId = envMap.PAYFAST_MERCHANT_ID;
   envMap.PAYFAST_MODE = "live";
+  envMap.PAYFAST_MERCHANT_ID = "10000100";
   try {
     const body = await (await healthFn(request())).json();
     const credentials = body.checks.find((c: any) => c.name === "Payfast credentials");
@@ -142,6 +147,7 @@ test("warns when live mode is still pointed at Payfast's test account", async ()
     assert.equal(body.ready, false);
   } finally {
     envMap.PAYFAST_MODE = previous;
+    envMap.PAYFAST_MERCHANT_ID = previousId;
   }
 });
 
@@ -191,5 +197,71 @@ test("the Payfast test bench refuses to run in live mode", async () => {
     assert.equal(live.status, 404, "the test bench was reachable on a live store");
   } finally {
     envMap.PAYFAST_MODE = previous;
+  }
+});
+
+test("with Stitch configured, it actually asks Stitch whether the credentials work", async () => {
+  // A mistyped secret looks exactly like a correct one until a customer
+  // tries to pay. This is the check that catches it first.
+  const { startFakeStitch } = await import("./fake-stitch-server.mts");
+  const { forgetStitchTokenForTests } = await import("./stitch.mts");
+  const fake = await startFakeStitch();
+  const previous = { ...envMap };
+  Object.assign(envMap, {
+    STITCH_CLIENT_ID: "test-meravo",
+    STITCH_CLIENT_SECRET: STITCH_SECRET,
+    STITCH_TOKEN_URL: fake.tokenUrl,
+    STITCH_API_URL: fake.apiUrl,
+    STITCH_BENEFICIARY_NAME: "Meravo",
+    STITCH_BENEFICIARY_BANK_ID: "fnb",
+    STITCH_BENEFICIARY_ACCOUNT_NUMBER: ACCOUNT_NUMBER,
+  });
+  try {
+    forgetStitchTokenForTests();
+    let body = await (await healthFn(request())).json();
+    let byName = Object.fromEntries(body.checks.map((c: any) => [c.name, c]));
+    assert.match(byName.Payments.detail, /Stitch, with a TEST client/);
+    assert.equal(byName["Stitch connection"].ok, true);
+    assert.equal(fake.tokenRequests.length, 1, "Stitch was not actually asked");
+    assert.match(byName["Settlement account"].detail, /FNB account ending 4567/);
+    // No secret yet: payments work, but a closed tab is not caught.
+    assert.equal(byName["Stitch webhook"].warning, true);
+    assert.match(byName["Stitch webhook"].detail, /\/api\/payments\/stitch\/webhook/);
+
+    // Neither the client secret nor the full account number is printed.
+    const html = await (await healthFn(request("text/html"))).text();
+    for (const text of [html, JSON.stringify(body)]) {
+      assert.ok(!text.includes(STITCH_SECRET), "the Stitch client secret reached the status page");
+      assert.ok(!text.includes(ACCOUNT_NUMBER), "the full account number reached the status page");
+    }
+
+    // A wrong secret is reported in plain words.
+    forgetStitchTokenForTests();
+    fake.rejectCredentials = "invalid_client";
+    body = await (await healthFn(request())).json();
+    byName = Object.fromEntries(body.checks.map((c: any) => [c.name, c]));
+    assert.equal(byName["Stitch connection"].ok, false);
+    assert.match(byName["Stitch connection"].detail, /STITCH_CLIENT_SECRET/);
+    assert.equal(body.ready, false);
+  } finally {
+    for (const key of Object.keys(envMap)) delete envMap[key];
+    Object.assign(envMap, previous);
+    forgetStitchTokenForTests();
+    await fake.close();
+  }
+});
+
+test("with no payment account at all, it says checkout is closed and how to open it", async () => {
+  const previous = { ...envMap };
+  envMap.PAYFAST_MERCHANT_ID = "";
+  envMap.PAYFAST_MERCHANT_KEY = "";
+  try {
+    const body = await (await healthFn(request())).json();
+    const payments = body.checks.find((c: any) => c.name === "Payments");
+    assert.equal(payments.ok, false);
+    assert.match(payments.detail, /STITCH_CLIENT_ID/);
+    assert.match(payments.detail, /WhatsApp/);
+  } finally {
+    Object.assign(envMap, previous);
   }
 });
