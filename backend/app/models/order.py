@@ -34,7 +34,9 @@ class Order(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     status: Mapped[OrderStatus] = mapped_column(
         Enum(OrderStatus, name="order_status"), default=OrderStatus.PENDING
     )
-    payfast_payment_id: Mapped[str] = mapped_column(String(100), default="")
+    # Stitch's id for the payment request created for this order. The only
+    # link from a Stitch webhook back to the order it is about.
+    provider_reference: Mapped[str] = mapped_column(String(255), default="", index=True)
 
     courier: Mapped[str] = mapped_column(String(50), default="Aramex")
     tracking_number: Mapped[str] = mapped_column(String(100), default="")

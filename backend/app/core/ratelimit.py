@@ -13,8 +13,8 @@ Two things it deliberately does NOT limit:
   eventually lock real shoppers out of their own carts. Measured: a 60/min
   cap blocked the 61st cart read from an IP, which several shoppers on one
   mobile network would reach between them.
-- The Payfast callback. Payfast retries anything that is not a 200, so a
-  throttled callback would leave a genuinely paid order unconfirmed.
+- Stitch's webhook. Stitch retries anything that is not a 200, so a
+  throttled webhook would leave a genuinely paid order unconfirmed.
 
 What is left is low-volume by nature: nobody legitimately checks out
 twenty times a minute.
@@ -33,18 +33,21 @@ WINDOW_SECONDS = 60
 
 # Prefix -> requests allowed per minute per IP. Longest match wins.
 DEFAULT_RULES: dict[str, int] = {
-    # Creates an order and signs a Payfast request. One real checkout per
+    # Creates an order and a Stitch payment request. One real checkout per
     # shopper; anything near this ceiling is a script.
     "/api/orders/checkout": 20,
+    # The order-success page asks up to ten times per order, and each ask
+    # is a call to Stitch's API.
+    "/api/payments/confirm": 30,
     # Password guessing. Only reachable when ENABLE_ACCOUNTS is on.
     "/api/auth": 10,
 }
 
-# Never limited, whatever the rules say. Payfast retries anything that is
-# not a 200, so throttling this endpoint would leave genuinely paid orders
+# Never limited, whatever the rules say. Stitch retries anything that is
+# not a 200, so throttling its webhook would leave genuinely paid orders
 # unconfirmed. Enforced ahead of the rules rather than left implicit in
 # them, so a later broad rule cannot quietly capture it.
-ALWAYS_EXEMPT_PREFIXES = ("/api/payments",)
+ALWAYS_EXEMPT_PREFIXES = ("/api/payments/stitch/webhook",)
 
 
 class RateLimitMiddleware(BaseHTTPMiddleware):

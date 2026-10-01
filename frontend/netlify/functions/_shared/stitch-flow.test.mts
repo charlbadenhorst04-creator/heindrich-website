@@ -344,6 +344,23 @@ test("a paid order is never walked back by a later 'cancelled'", async () => {
   assert.equal(await statusOf(body.order_id), "paid");
 });
 
+test("an order already shipped is not re-sold by a late webhook", async () => {
+  // The shop marks orders shipped by hand. A webhook retried after that
+  // must not move it back to paid, take the stock again or re-send emails.
+  const { body, product } = await checkout();
+  const requestId = requestIdFor(body.order_id);
+  fake.setState(requestId, "PaymentInitiationRequestCompleted");
+  await confirm(body.order_id);
+  await pool.query("UPDATE orders SET status = 'shipped' WHERE id = $1", [body.order_id]);
+  const before = await stockOf(product.id);
+
+  await webhook({ data: { id: requestId, externalReference: body.order_id } });
+  await confirm(body.order_id);
+
+  assert.equal(await statusOf(body.order_id), "shipped");
+  assert.equal(await stockOf(product.id), before, "a shipped order's stock was taken again");
+});
+
 test("a webhook about an order this shop never made is acknowledged and ignored", async () => {
   const res = await webhook({ data: { id: "someone-else", externalReference: crypto.randomUUID() } });
   assert.equal(res.status, 200);

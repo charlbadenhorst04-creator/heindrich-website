@@ -54,11 +54,13 @@ CREATE TABLE orders (
   shipping_fee NUMERIC(10, 2) NOT NULL DEFAULT 0,
   total_amount NUMERIC(10, 2) NOT NULL,
   status TEXT NOT NULL DEFAULT 'pending',
-  payfast_payment_id TEXT NOT NULL DEFAULT '',
+  payment_provider TEXT NOT NULL DEFAULT 'stitch',
+  provider_reference TEXT NOT NULL DEFAULT '',
   courier TEXT NOT NULL DEFAULT 'Aramex',
   tracking_number TEXT NOT NULL DEFAULT '',
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+CREATE INDEX idx_orders_provider_reference ON orders (provider_reference);
 
 CREATE TABLE order_items (
   id UUID PRIMARY KEY,

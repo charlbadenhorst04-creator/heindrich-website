@@ -15,7 +15,7 @@ async def test_checkout_empty_cart_fails(client, unique_session_key):
     assert resp.status_code == 400
 
 
-async def test_checkout_small_order_charges_shipping(client, unique_session_key, seeded_products):
+async def test_checkout_small_order_charges_shipping(client, unique_session_key, seeded_products, stitch):
     product_b = seeded_products["product_b"]  # R250, below the free-shipping threshold
     await client.post(
         f"/api/cart/{unique_session_key}/items",
@@ -27,9 +27,10 @@ async def test_checkout_small_order_charges_shipping(client, unique_session_key,
     )
     assert resp.status_code == 200
     data = resp.json()
-    assert data["action_url"].endswith("/eng/process")
-    assert data["fields"]["amount"] == "349.00"  # 250 subtotal + 99 shipping
-    assert "signature" in data["fields"]
+    assert data["provider"] == "stitch"
+    assert data["redirect_url"].startswith(stitch.url)
+    # Stitch is asked for exactly the order total: 250 subtotal + 99 shipping.
+    assert stitch.request_for(data["order_id"])["amount"] == {"quantity": 349.0, "currency": "ZAR"}
 
     order = await client.get(f"/api/orders/{data['order_id']}")
     assert order.status_code == 200
@@ -41,7 +42,7 @@ async def test_checkout_small_order_charges_shipping(client, unique_session_key,
     assert order_data["status"] == "pending"
 
 
-async def test_checkout_large_order_gets_free_shipping(client, unique_session_key, seeded_products):
+async def test_checkout_large_order_gets_free_shipping(client, unique_session_key, seeded_products, stitch):
     product_a = seeded_products["product_a"]  # R499
     await client.post(
         f"/api/cart/{unique_session_key}/items",
@@ -53,7 +54,7 @@ async def test_checkout_large_order_gets_free_shipping(client, unique_session_ke
     )
     assert resp.status_code == 200
     data = resp.json()
-    assert data["fields"]["amount"] == "1996.00"
+    assert stitch.request_for(data["order_id"])["amount"]["quantity"] == 1996.0
 
     order = await client.get(f"/api/orders/{data['order_id']}")
     order_data = order.json()

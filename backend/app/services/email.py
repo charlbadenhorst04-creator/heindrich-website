@@ -1,13 +1,13 @@
 """Order notification email.
 
-Two messages go out the moment Payfast confirms a payment: one to the shop
+Two messages go out the moment Stitch confirms a payment: one to the shop
 owner so they know to pack and ship, and one to the customer as their
 receipt.
 
 Nothing in here is allowed to break a payment. Every send is wrapped so a
 misconfigured or unreachable mail server logs a warning and nothing more -
-if an SMTP failure propagated, the Payfast callback would return an error,
-Payfast would retry it, and a real paid order could be left unconfirmed.
+if an SMTP failure propagated, the payment confirmation would return an
+error, Stitch would retry it, and a real paid order could be left unconfirmed.
 """
 
 import logging
@@ -221,7 +221,7 @@ def _send(message: EmailMessage) -> None:
 def send_order_emails(order: Order) -> None:
     """Notify the shop owner and the customer that an order has been paid.
 
-    Runs as a background task after the Payfast callback has already been
+    Runs as a background task after the payment confirmation has already been
     answered, and swallows its own failures: a mail problem must never cost
     a confirmed order. Each message is sent separately so one bad address
     cannot suppress the other.

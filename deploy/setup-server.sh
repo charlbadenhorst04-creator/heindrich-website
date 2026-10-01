@@ -101,7 +101,7 @@ fi
 bold "3/6  Configuration"
 if [ -f "$ENV_FILE" ]; then
   ok ".env already exists - leaving it untouched"
-  warn "check SITE_DOMAIN and the PAYFAST_* values in it before going live"
+  warn "check SITE_DOMAIN and the STITCH_* values in it before going live"
 else
   DB_PASS="$(openssl rand -base64 30 | tr -d '/+=' | head -c 32)"
   SECRET="$(openssl rand -base64 48 | tr -d '/+=' | head -c 64)"
@@ -126,16 +126,18 @@ SECRET_KEY=$SECRET
 ACCESS_TOKEN_EXPIRE_MINUTES=60
 BACKEND_CORS_ORIGINS=https://$DOMAIN,https://www.$DOMAIN
 
-# ---- Payfast --------------------------------------------------------------
-# Still the sandbox. Switch PAYFAST_MODE to "live" and paste your real
-# merchant details once you have tested a sandbox payment end to end.
-PAYFAST_MODE=sandbox
-PAYFAST_MERCHANT_ID=10000100
-PAYFAST_MERCHANT_KEY=46f0cd694581a
-PAYFAST_PASSPHRASE=
-PAYFAST_RETURN_URL=https://$DOMAIN/order-success
-PAYFAST_CANCEL_URL=https://$DOMAIN/cart
-PAYFAST_NOTIFY_URL=https://$DOMAIN/api/payments/payfast/notify
+# ---- Stitch ---------------------------------------------------------------
+# Empty = checkout closed, WhatsApp handover instead. Put in a Stitch TEST
+# client first (id starts "test-"), test a payment end to end, then swap in
+# the live client. Ask Stitch to whitelist https://$DOMAIN/order-success,
+# and add a webhook for the "payment" event pointing at
+# https://$DOMAIN/api/payments/stitch/webhook
+STITCH_CLIENT_ID=
+STITCH_CLIENT_SECRET=
+STITCH_WEBHOOK_SECRET=
+STITCH_BENEFICIARY_NAME=
+STITCH_BENEFICIARY_BANK_ID=
+STITCH_BENEFICIARY_ACCOUNT_NUMBER=
 
 # ---- Order emails ---------------------------------------------------------
 # Gmail needs an App password, not your normal password. See the README.
@@ -166,7 +168,7 @@ VITE_API_BASE_URL=/api
 EOF
   chmod 600 "$ENV_FILE"
   ok "wrote .env with a generated database password and secret key"
-  warn "starts in Payfast SANDBOX mode - no real money moves until you change it"
+  warn "card payments stay closed until you add Stitch credentials to .env"
 fi
 
 # ----------------------------------------------------------------- firewall
@@ -222,8 +224,8 @@ $(bold "Done")
   Backup     docker compose exec -T db pg_dump -U meravo meravo | gzip > meravo-\$(date +%F).sql.gz
 
   Still to do before taking real money:
-    1. Test a sandbox payment all the way through.
-    2. Put your real Payfast details in .env and set PAYFAST_MODE=live.
+    1. Put a Stitch test client in .env and test a payment all the way through.
+    2. Swap in the live Stitch client id and secret.
     3. Add SMTP_PASSWORD (a Gmail App password) so order emails send.
     4. Re-run this script to apply those changes.
 

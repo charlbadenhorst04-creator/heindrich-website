@@ -1,5 +1,8 @@
 import os
 
+from fake_stitch import SERVER as FAKE_STITCH
+from fake_stitch import WEBHOOK_SECRET
+
 os.environ.setdefault("SECRET_KEY", "test-secret-key")
 os.environ.setdefault("BACKEND_CORS_ORIGINS", "http://testserver")
 # The account routes are unmounted in a default deployment; mount them here
@@ -10,9 +13,14 @@ os.environ.setdefault("ENABLE_ACCOUNTS", "true")
 # would, so the limiter is off here and tested directly in
 # test_security_defaults.py instead.
 os.environ.setdefault("RATE_LIMIT_PER_MINUTE", "0")
-# The notify route only accepts ITNs for this shop's own merchant, so the
-# suite needs one to be "this shop".
-os.environ.setdefault("PAYFAST_MERCHANT_ID", "10000100")
+# Every checkout goes to Stitch, so the suite runs against a stand-in Stitch
+# on a local port (tests/fake_stitch.py), with a test client.
+os.environ.setdefault("STITCH_CLIENT_ID", "test-meravo")
+os.environ.setdefault("STITCH_CLIENT_SECRET", "test-secret")
+os.environ.setdefault("STITCH_WEBHOOK_SECRET", WEBHOOK_SECRET)
+os.environ["STITCH_TOKEN_URL"] = FAKE_STITCH.token_url
+os.environ["STITCH_API_URL"] = FAKE_STITCH.api_url
+os.environ.setdefault("STORE_URL", "http://localhost:8090")
 
 import pytest
 import pytest_asyncio
@@ -94,3 +102,16 @@ async def seeded_products():
 @pytest.fixture
 def unique_session_key():
     return f"test-session-{os.urandom(8).hex()}"
+
+
+@pytest.fixture
+def stitch():
+    """The stand-in Stitch, with any per-test misbehaviour reset after."""
+    from app.services.stitch import forget_token_for_tests
+
+    yield FAKE_STITCH
+    FAKE_STITCH.reject_credentials = None
+    FAKE_STITCH.fail_create = None
+    FAKE_STITCH.override_amount.clear()
+    FAKE_STITCH.override_external_reference.clear()
+    forget_token_for_tests()

@@ -18,11 +18,15 @@ import { sendOrderEmails } from "./email.mts";
  * Mark an order paid. Returns true only for the caller that actually made
  * the change; every other caller, concurrent or later, gets false and does
  * nothing further.
+ *
+ * Only an order that has not been paid yet can move. An order the shop has
+ * since marked shipped or complete is past "paid", and a late webhook for
+ * it must not take the stock again or re-send the emails.
  */
 export async function settlePaid(database: any, orderId: string): Promise<boolean> {
   const changed = (await database.sql`
     UPDATE orders SET status = 'paid'
-    WHERE id = ${orderId} AND status <> 'paid'
+    WHERE id = ${orderId} AND status IN ('pending', 'failed', 'cancelled')
     RETURNING id
   `) as any[];
 

@@ -1,122 +1,122 @@
-import uuid
-from decimal import Decimal, InvalidOperation
+"""Payment confirmation: the return-page check and Stitch's webhook.
 
-from fastapi import APIRouter, BackgroundTasks, Request, Response
-from sqlalchemy import func, select, update
-from sqlalchemy.orm import selectinload
+Neither is believed on its own. The customer's browser arrives back from
+Stitch with a status on the URL, which Stitch's own docs warn can be
+tampered with; a webhook body could be forged or replayed. Both only say
+which order to go and look at - ``reconcile`` then asks Stitch, server to
+server, and only that answer decides anything about money.
+"""
+
+import json
+import logging
+import uuid
+
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Request, Response
+from sqlalchemy import or_, select
 
 from app.api.deps import DbSession
-from app.models.order import Order, OrderStatus
-from app.models.product import Product
-from app.services.email import send_order_emails
-from app.services.payfast import signature_matches, verify_itn_with_payfast
-from app.services.whatsapp import send_order_whatsapp
 from app.core.config import settings
+from app.models.order import Order
+from app.schemas.order import PaymentConfirmation, PaymentConfirmRequest
+from app.services.email import send_order_emails
+from app.services.settlement import reconcile
+from app.services.stitch import StitchError, verify_webhook_signature, webhook_candidates
+from app.services.whatsapp import send_order_whatsapp
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/payments", tags=["payments"])
 
 
-@router.post("/payfast/notify")
-async def payfast_notify(
-    request: Request, db: DbSession, background_tasks: BackgroundTasks
-) -> Response:
-    """Payfast's server-to-server ITN (Instant Transaction Notification).
-
-    We must (1) verify the signature, (2) ask Payfast to confirm the
-    payload is genuinely theirs, and (3) check the amount matches our
-    order before marking anything as paid.
-
-    Every field here arrives from the network, so nothing is trusted
-    until it has been parsed and validated - a malformed order id or
-    amount must produce a 400, never an unhandled 500.
-    """
-    form = await request.form()
-    data = {key: str(value) for key, value in form.items()}
-
-    if not signature_matches(data, settings.PAYFAST_PASSPHRASE):
-        return Response(status_code=400, content="invalid signature")
-
-    # The ITN must be for this shop's own merchant. Payfast vouches for any
-    # genuine ITN, including one for somebody else's account: without this,
-    # anyone could pay their own Payfast merchant while naming one of this
-    # shop's orders and this notify URL, and Payfast would truthfully
-    # confirm a payment that never reached this shop. The signature does not
-    # stop that when neither account uses a passphrase.
-    our_merchant = settings.PAYFAST_MERCHANT_ID.strip()
-    if not our_merchant or data.get("merchant_id", "").strip() != our_merchant:
-        return Response(status_code=400, content="not this merchant")
-
-    if not await verify_itn_with_payfast(data):
-        return Response(status_code=400, content="not confirmed by payfast")
-
-    raw_order_id = data.get("m_payment_id", "")
-    if not raw_order_id:
-        return Response(status_code=400, content="missing order id")
-    try:
-        order_id = uuid.UUID(raw_order_id)
-    except ValueError:
-        return Response(status_code=400, content="malformed order id")
-
-    try:
-        amount_gross = Decimal(data.get("amount_gross", ""))
-    except (InvalidOperation, ValueError):
-        return Response(status_code=400, content="malformed amount")
-
-    stmt = select(Order).where(Order.id == order_id).options(selectinload(Order.items))
-    order = (await db.execute(stmt)).scalar_one_or_none()
-    if order is None:
-        return Response(status_code=404, content="order not found")
-
-    # Compare in cents so no float rounding can let a short payment through.
-    if _to_cents(amount_gross) != _to_cents(Decimal(order.total_amount)):
-        return Response(status_code=400, content="amount mismatch")
-
-    # Payfast retries an ITN until it gets a 200, so the same notification
-    # can legitimately arrive more than once. Settle the stock exactly once
-    # and never walk an already-paid order back to a failed state.
-    already_paid = order.status == OrderStatus.PAID
-    payment_complete = data.get("payment_status", "") == "COMPLETE"
-
-    order.payfast_payment_id = data.get("pf_payment_id", "")
-
-    newly_paid = False
-    if payment_complete:
-        if not already_paid:
-            order.status = OrderStatus.PAID
-            await _reduce_stock(db, order)
-            newly_paid = True
-    elif not already_paid:
-        order.status = OrderStatus.FAILED
-
-    await db.commit()
-
-    if newly_paid:
-        # Queued as a background task so the 200 below reaches Payfast
-        # immediately - a slow mail server must not delay the callback.
-        # Guarded by `newly_paid`, so a retried notification for an order
-        # already marked paid does not email anyone a second time.
-        await db.refresh(order, attribute_names=["items"])
+def _notify(background_tasks: BackgroundTasks, order: Order | None) -> None:
+    """Queued as background tasks so the response is not held up by a slow
+    mail server. Only the caller that actually marked the order paid gets an
+    order here, so a repeated confirmation never notifies anyone twice."""
+    if order is not None:
         background_tasks.add_task(send_order_emails, order)
         background_tasks.add_task(send_order_whatsapp, order)
 
-    return Response(status_code=200, content="OK")
+
+@router.post("/confirm", response_model=PaymentConfirmation)
+async def confirm_payment(
+    payload: PaymentConfirmRequest, db: DbSession, background_tasks: BackgroundTasks
+) -> PaymentConfirmation:
+    """Where the order-success page asks "did this actually get paid?"."""
+    order = await db.get(Order, payload.order_id)
+    if order is None:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    status = order.status
+    if settings.stitch_configured:
+        try:
+            status, newly_paid = await reconcile(db, order)
+            _notify(background_tasks, newly_paid)
+        except StitchError as error:
+            # Stitch unreachable for a moment: report what is known and let
+            # the page ask again. The webhook settles it regardless.
+            logger.error("Order %s: could not check with Stitch: %s", order.id, error)
+
+    return PaymentConfirmation(order_id=order.id, status=status)
 
 
-def _to_cents(amount: Decimal) -> int:
-    return int((amount * 100).to_integral_value())
+@router.post("/stitch/webhook")
+async def stitch_webhook(
+    request: Request, db: DbSession, background_tasks: BackgroundTasks
+) -> Response:
+    """Stitch's webhook: the confirmation that does not depend on the
+    customer's browser making it back. Someone who pays and then closes the
+    tab still paid - this is what catches them.
 
-
-async def _reduce_stock(db: DbSession, order: Order) -> None:
-    """Draw down stock for a newly-paid order, never below zero.
-
-    Done as a single UPDATE per item so the subtraction happens inside the
-    database. Reading the stock into Python, subtracting and writing it
-    back would lose one of two decrements if two orders for the same
-    product were confirmed at the same moment.
+    Refused outright unless STITCH_WEBHOOK_SECRET is set and the signature
+    checks out, so strangers cannot make this server call Stitch's API on
+    their behalf.
     """
-    for item in order.items:
-        await db.execute(
-            update(Product)
-            .where(Product.id == item.product_id)
-            .values(stock=func.greatest(Product.stock - item.quantity, 0))
-        )
+    # The signature covers the body byte for byte, so it is read raw.
+    body = await request.body()
+
+    secret = settings.STITCH_WEBHOOK_SECRET.strip()
+    headers = request.headers
+    if not secret or not verify_webhook_signature(
+        msg_id=headers.get("svix-id") or headers.get("webhook-id"),
+        timestamp=headers.get("svix-timestamp") or headers.get("webhook-timestamp"),
+        signature=headers.get("svix-signature") or headers.get("webhook-signature"),
+        body=body,
+        secret=secret,
+    ):
+        return Response(status_code=401, content="invalid signature")
+
+    try:
+        payload = json.loads(body)
+    except ValueError:
+        return Response(status_code=400, content="expected JSON")
+
+    ids, refs = webhook_candidates(payload)
+    order_ids = []
+    for ref in refs:
+        try:
+            order_ids.append(uuid.UUID(ref))
+        except ValueError:
+            continue
+    if not order_ids and not ids:
+        # Nothing that could name an order. Acknowledged so it is not retried.
+        return Response(status_code=200, content="OK")
+
+    # Only orders this shop created, found by our own id or by the Stitch
+    # reference stored when the request was created.
+    conditions = []
+    if order_ids:
+        conditions.append(Order.id.in_(order_ids))
+    if ids:
+        conditions.append((Order.provider_reference != "") & Order.provider_reference.in_(ids))
+    orders = (await db.execute(select(Order).where(or_(*conditions)).limit(5))).scalars().all()
+
+    try:
+        for order in orders:
+            _, newly_paid = await reconcile(db, order)
+            _notify(background_tasks, newly_paid)
+    except StitchError as error:
+        # A 500 makes Stitch's webhook service retry later, which is wanted.
+        logger.error("Stitch webhook: could not reconcile: %s", error)
+        return Response(status_code=500, content="retry")
+
+    return Response(status_code=200, content="OK")

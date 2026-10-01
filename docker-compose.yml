@@ -40,13 +40,16 @@ services:
       # Nothing in the storefront signs in; leave the auth routes unmounted.
       ENABLE_ACCOUNTS: ${ENABLE_ACCOUNTS:-false}
       RATE_LIMIT_PER_MINUTE: ${RATE_LIMIT_PER_MINUTE:-60}
-      PAYFAST_MODE: ${PAYFAST_MODE:-sandbox}
-      PAYFAST_MERCHANT_ID: ${PAYFAST_MERCHANT_ID:-10000100}
-      PAYFAST_MERCHANT_KEY: ${PAYFAST_MERCHANT_KEY:-46f0cd694581a}
-      PAYFAST_PASSPHRASE: ${PAYFAST_PASSPHRASE:-}
-      PAYFAST_RETURN_URL: ${PAYFAST_RETURN_URL:-http://localhost:8090/order-success}
-      PAYFAST_CANCEL_URL: ${PAYFAST_CANCEL_URL:-http://localhost:8090/cart}
-      PAYFAST_NOTIFY_URL: ${PAYFAST_NOTIFY_URL:-http://localhost:${BACKEND_PORT:-8000}/api/payments/payfast/notify}
+      # Stitch. Checkout stays closed (WhatsApp handover) until both the
+      # client id and secret are set.
+      STITCH_CLIENT_ID: ${STITCH_CLIENT_ID:-}
+      STITCH_CLIENT_SECRET: ${STITCH_CLIENT_SECRET:-}
+      STITCH_WEBHOOK_SECRET: ${STITCH_WEBHOOK_SECRET:-}
+      STITCH_BENEFICIARY_NAME: ${STITCH_BENEFICIARY_NAME:-}
+      STITCH_BENEFICIARY_BANK_ID: ${STITCH_BENEFICIARY_BANK_ID:-}
+      STITCH_BENEFICIARY_ACCOUNT_NUMBER: ${STITCH_BENEFICIARY_ACCOUNT_NUMBER:-}
+      STITCH_PAYER_REFERENCE: ${STITCH_PAYER_REFERENCE:-MERAVO}
+      PAYMENTS_ENABLED: ${PAYMENTS_ENABLED:-true}
       # Order notification email. Leave SMTP_HOST empty to disable sending.
       SMTP_HOST: ${SMTP_HOST:-}
       SMTP_PORT: ${SMTP_PORT:-587}

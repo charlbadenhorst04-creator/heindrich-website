@@ -291,12 +291,10 @@ async def test_order_without_a_phone_number_is_skipped(monkeypatch, provider_ser
 
 
 async def test_paid_order_triggers_a_whatsapp_message(
-    client, unique_session_key, seeded_products, monkeypatch, provider_server
+    client, unique_session_key, seeded_products, monkeypatch, provider_server, stitch
 ):
-    """End to end: cart -> checkout -> confirmed Payfast ITN -> message sent
-    to the number the shopper typed on the checkout form."""
-    from app.api.routes import payments as payments_route
-    from app.services.payfast import build_signature
+    """End to end: cart -> checkout -> payment confirmed by Stitch -> message
+    sent to the number the shopper typed on the checkout form."""
 
     base_url, capture = provider_server
     monkeypatch.setattr(settings, "WHATSAPP_PROVIDER", "meta")
@@ -332,22 +330,12 @@ async def test_paid_order_triggers_a_whatsapp_message(
     )
     assert checkout.status_code == 200
 
-    async def fake_verify_itn(_data):
-        return True
+    order_id = checkout.json()["order_id"]
+    stitch.set_state(stitch.request_for(order_id)["id"], "PaymentInitiationRequestCompleted")
 
-    monkeypatch.setattr(payments_route, "verify_itn_with_payfast", fake_verify_itn)
-
-    fields = {
-        "m_payment_id": checkout.json()["order_id"],
-        "merchant_id": "10000100",
-        "pf_payment_id": "PF-WA-TEST",
-        "payment_status": "COMPLETE",
-        "amount_gross": "598.00",
-    }
-    fields["signature"] = build_signature(fields)
-
-    resp = await client.post("/api/payments/payfast/notify", data=fields)
+    resp = await client.post("/api/payments/confirm", json={"order_id": order_id})
     assert resp.status_code == 200
+    assert resp.json()["status"] == "paid"
 
     assert len(capture.requests) == 1, "no WhatsApp message was sent for a paid order"
     body = json.loads(capture.requests[0]["raw"])

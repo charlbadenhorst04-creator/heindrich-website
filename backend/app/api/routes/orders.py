@@ -1,3 +1,4 @@
+import logging
 import uuid
 
 from fastapi import APIRouter, HTTPException
@@ -7,16 +8,23 @@ from sqlalchemy.orm import selectinload
 from app.api.deps import DbSession
 from app.models.cart import Cart, CartItem
 from app.models.order import Order, OrderItem
-from app.schemas.order import CheckoutRequest, OrderRead, PayfastInitiateResponse
-from app.services.payfast import build_checkout_fields
+from app.schemas.order import CheckoutRequest, CheckoutResponse, OrderRead
+from app.services.stitch import StitchError, create_payment_request
 from app.core.config import settings
 from app.core.shipping import COURIER_NAME, compute_shipping_fee
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/orders", tags=["orders"])
 
 
-@router.post("/checkout", response_model=PayfastInitiateResponse)
-async def checkout(payload: CheckoutRequest, db: DbSession) -> PayfastInitiateResponse:
+@router.post("/checkout", response_model=CheckoutResponse)
+async def checkout(payload: CheckoutRequest, db: DbSession) -> CheckoutResponse:
+    # Without a Stitch account nobody can pay, so no order is recorded that
+    # would only sit there looking like a lost sale.
+    if not settings.payments_open:
+        raise HTTPException(status_code=503, detail=settings.PAYMENTS_CLOSED_MESSAGE)
+
     stmt = (
         select(Cart)
         .where(Cart.session_key == payload.session_key)
@@ -77,21 +85,23 @@ async def checkout(payload: CheckoutRequest, db: DbSession) -> PayfastInitiateRe
     db.add(order)
     await db.flush()
 
-    fields = build_checkout_fields(
-        order_id=order.id,
-        amount=float(total),
-        item_name=f"MERAVO order {order.id}",
-        customer_email=payload.customer_email,
-        customer_name=payload.customer_name,
-    )
+    try:
+        payment = await create_payment_request(
+            order_id=str(order.id), amount=total, return_url=settings.return_url
+        )
+    except StitchError as error:
+        # Nothing is committed, so no unpayable order is left behind.
+        await db.rollback()
+        logger.error("Checkout: Stitch could not create a payment request: %s", error)
+        raise HTTPException(
+            status_code=502,
+            detail="We couldn't open the secure payment page just now. Please try again in a moment.",
+        ) from error
 
+    order.provider_reference = payment.id
     await db.commit()
 
-    return PayfastInitiateResponse(
-        order_id=order.id,
-        action_url=f"{settings.payfast_host}/eng/process",
-        fields=fields,
-    )
+    return CheckoutResponse(order_id=order.id, redirect_url=payment.redirect_url)
 
 
 @router.get("/{order_id}", response_model=OrderRead)

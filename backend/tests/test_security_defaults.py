@@ -101,8 +101,8 @@ async def test_browsing_and_cart_traffic_are_never_rate_limited():
     assert 429 not in cart_codes, "cart reads were throttled"
 
 
-async def test_payfast_callback_is_never_rate_limited():
-    """Payfast retries anything that is not a 200, so a throttled callback
+async def test_stitch_webhook_is_never_rate_limited():
+    """Stitch retries anything that is not a 200, so a throttled webhook
     would leave a genuinely paid order unconfirmed."""
     app = create_app()
     for middleware in app.user_middleware:
@@ -112,11 +112,11 @@ async def test_payfast_callback_is_never_rate_limited():
 
     async with _client_for(app) as client:
         codes = [
-            (await client.post("/api/payments/payfast/notify", data={})).status_code
+            (await client.post("/api/payments/stitch/webhook", content=b"{}")).status_code
             for _ in range(6)
         ]
 
-    assert 429 not in codes, "the Payfast callback was throttled"
+    assert 429 not in codes, "the Stitch webhook was throttled"
 
 
 # --- go-live configuration guards -----------------------------------------
@@ -124,7 +124,10 @@ async def test_payfast_callback_is_never_rate_limited():
 
 def _live_settings(**overrides):
     base = {
-        "PAYFAST_MODE": "live",
+        # A real (not "test-") Stitch client: real money moves.
+        "STITCH_CLIENT_ID": "meravo-live-client",
+        "STITCH_CLIENT_SECRET": "live-secret",
+        "STORE_URL": "https://meravo.co.za",
         "SECRET_KEY": "a-real-long-random-secret-value-for-testing",
         "DATABASE_URL": "postgresql+asyncpg://meravo:a-strong-password@db:5432/meravo",
         "BACKEND_CORS_ORIGINS": "https://meravo.co.za",
@@ -134,7 +137,7 @@ def _live_settings(**overrides):
 
 
 def test_live_mode_accepts_a_properly_configured_deployment():
-    assert Settings(**_live_settings()).PAYFAST_MODE == "live"
+    assert Settings(**_live_settings()).live_payments
 
 
 def test_live_mode_refuses_a_placeholder_secret_key():
@@ -164,6 +167,16 @@ def test_localhost_over_http_is_still_fine_in_live_mode():
     )
 
 
-def test_sandbox_mode_stays_zero_config():
-    """Local and sandbox work must not need any of this."""
-    assert Settings(PAYFAST_MODE="sandbox", SECRET_KEY="change-me-to-a-long-random-string")
+def test_live_mode_refuses_a_plain_http_store_url():
+    """STORE_URL is where Stitch returns paying customers."""
+    with pytest.raises(ValueError, match="STORE_URL"):
+        Settings(**_live_settings(STORE_URL="http://meravo.co.za"))
+
+
+def test_test_client_stays_zero_config():
+    """Local work and a Stitch test client must not need any of this."""
+    assert not Settings(
+        STITCH_CLIENT_ID="test-meravo",
+        STITCH_CLIENT_SECRET="x",
+        SECRET_KEY="change-me-to-a-long-random-string",
+    ).live_payments

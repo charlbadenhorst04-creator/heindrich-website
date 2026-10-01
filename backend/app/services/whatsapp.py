@@ -1,6 +1,6 @@
 """WhatsApp order confirmation.
 
-Sent to the customer once Payfast confirms their payment, alongside the
+Sent to the customer once Stitch confirms their payment, alongside the
 confirmation email.
 
 Two constraints from WhatsApp itself shape this module:
@@ -16,7 +16,7 @@ Two constraints from WhatsApp itself shape this module:
    ("082 123 4567"), so they are converted here.
 
 As with email, nothing raises: a messaging failure must never turn a
-confirmed payment into a failed Payfast callback.
+confirmed payment into a failed payment confirmation.
 """
 
 import logging

@@ -17,7 +17,6 @@ from aiosmtpd.controller import Controller
 
 from app.core.config import settings
 from app.services import email as email_service
-from app.services.payfast import build_signature
 
 CHECKOUT_ADDRESS = {
     "customer_email": "buyer@example.com",
@@ -52,7 +51,7 @@ class _FakeOrderItem:
 
 class _FakeOrder:
     """A stand-in order for tests that exercise the mail layer on its own,
-    without going through cart -> checkout -> ITN."""
+    without going through cart -> checkout -> payment."""
 
     id = "11111111-2222-3333-4444-555555555555"
     customer_name = "Thandi Mokoena"
@@ -95,8 +94,10 @@ def smtp_server(monkeypatch):
     controller.stop()
 
 
-async def _paid_order(client, unique_session_key, seeded_products, monkeypatch):
-    """Take a product through cart -> checkout -> a confirmed Payfast ITN."""
+async def _paid_order(client, unique_session_key, seeded_products, stitch):
+    """Take a product through cart -> checkout -> a payment Stitch reports
+    as completed. Returns the order id; posting to /api/payments/confirm
+    is what then settles it."""
     product_a = seeded_products["product_a"]  # R499 + R99 shipping
     await client.post(
         f"/api/cart/{unique_session_key}/items",
@@ -107,31 +108,20 @@ async def _paid_order(client, unique_session_key, seeded_products, monkeypatch):
     )
     assert checkout.status_code == 200
     order_id = checkout.json()["order_id"]
+    stitch.set_state(stitch.request_for(order_id)["id"], "PaymentInitiationRequestCompleted")
+    return order_id
 
-    async def fake_verify_itn(_data):
-        return True
 
-    from app.api.routes import payments as payments_route
-
-    monkeypatch.setattr(payments_route, "verify_itn_with_payfast", fake_verify_itn)
-
-    fields = {
-        "m_payment_id": order_id,
-        "merchant_id": "10000100",
-        "pf_payment_id": "PF-EMAIL-TEST",
-        "payment_status": "COMPLETE",
-        "amount_gross": "598.00",
-    }
-    fields["signature"] = build_signature(fields)
-    return order_id, fields
+async def _confirm(client, order_id):
+    return await client.post("/api/payments/confirm", json={"order_id": order_id})
 
 
 async def test_paid_order_emails_both_the_shop_and_the_customer(
-    client, unique_session_key, seeded_products, monkeypatch, smtp_server
+    client, unique_session_key, seeded_products, monkeypatch, smtp_server, stitch
 ):
-    order_id, fields = await _paid_order(client, unique_session_key, seeded_products, monkeypatch)
+    order_id = await _paid_order(client, unique_session_key, seeded_products, stitch)
 
-    resp = await client.post("/api/payments/payfast/notify", data=fields)
+    resp = await _confirm(client, order_id)
     assert resp.status_code == 200
 
     assert len(smtp_server.messages) == 2, "expected one email to the shop and one to the customer"
@@ -173,14 +163,15 @@ async def test_paid_order_emails_both_the_shop_and_the_customer(
 
 
 async def test_repeated_notification_does_not_email_twice(
-    client, unique_session_key, seeded_products, monkeypatch, smtp_server
+    client, unique_session_key, seeded_products, monkeypatch, smtp_server, stitch
 ):
-    """Payfast retries an ITN until it gets a 200, so the same confirmation
-    arrives more than once. The customer must not be emailed each time."""
-    _, fields = await _paid_order(client, unique_session_key, seeded_products, monkeypatch)
+    """The return page asks repeatedly and Stitch's webhook may fire too, so
+    the same confirmation arrives more than once. The customer must not be
+    emailed each time."""
+    order_id = await _paid_order(client, unique_session_key, seeded_products, stitch)
 
-    first = await client.post("/api/payments/payfast/notify", data=fields)
-    second = await client.post("/api/payments/payfast/notify", data=fields)
+    first = await _confirm(client, order_id)
+    second = await _confirm(client, order_id)
 
     assert first.status_code == 200
     assert second.status_code == 200
@@ -188,19 +179,19 @@ async def test_repeated_notification_does_not_email_twice(
 
 
 async def test_mail_failure_never_costs_a_confirmed_order(
-    client, unique_session_key, seeded_products, monkeypatch, smtp_server
+    client, unique_session_key, seeded_products, monkeypatch, smtp_server, stitch
 ):
     """A broken mail server must not turn a paid order into a failed
-    callback: Payfast retries anything that isn't a 200, and an order that
+    confirmation: Stitch retries anything that isn't a 200, and an order that
     someone has genuinely paid for would be left unconfirmed."""
-    order_id, fields = await _paid_order(client, unique_session_key, seeded_products, monkeypatch)
+    order_id = await _paid_order(client, unique_session_key, seeded_products, stitch)
 
     def explode(*_args, **_kwargs):
         raise smtplib.SMTPException("mail server is down")
 
     monkeypatch.setattr(email_service, "_send", explode)
 
-    resp = await client.post("/api/payments/payfast/notify", data=fields)
+    resp = await _confirm(client, order_id)
 
     assert resp.status_code == 200
     order = await client.get(f"/api/orders/{order_id}")
@@ -208,14 +199,14 @@ async def test_mail_failure_never_costs_a_confirmed_order(
 
 
 async def test_sending_is_skipped_when_smtp_is_not_configured(
-    client, unique_session_key, seeded_products, monkeypatch, smtp_server
+    client, unique_session_key, seeded_products, monkeypatch, smtp_server, stitch
 ):
     """Local and sandbox setups have no mail server; that must be a no-op
     rather than an error on every paid order."""
     monkeypatch.setattr(settings, "SMTP_HOST", "")
-    order_id, fields = await _paid_order(client, unique_session_key, seeded_products, monkeypatch)
+    order_id = await _paid_order(client, unique_session_key, seeded_products, stitch)
 
-    resp = await client.post("/api/payments/payfast/notify", data=fields)
+    resp = await _confirm(client, order_id)
 
     assert resp.status_code == 200
     assert smtp_server.messages == []

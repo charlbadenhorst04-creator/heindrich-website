@@ -1,4 +1,5 @@
 import uuid
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
@@ -51,7 +52,18 @@ class OrderRead(BaseModel):
     items: list[OrderItemRead]
 
 
-class PayfastInitiateResponse(BaseModel):
+class CheckoutResponse(BaseModel):
+    """The customer is sent to Stitch's hosted payment page at redirect_url."""
+
     order_id: uuid.UUID
-    action_url: str
-    fields: dict[str, str]
+    provider: Literal["stitch"] = "stitch"
+    redirect_url: str
+
+
+class PaymentConfirmRequest(BaseModel):
+    order_id: uuid.UUID
+
+
+class PaymentConfirmation(BaseModel):
+    order_id: uuid.UUID
+    status: OrderStatus

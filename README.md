@@ -3,7 +3,7 @@
 *Your Style. Your Story.*
 
 MERAVO is an e-commerce storefront for South African online shopping —
-browse products, add them to a cart, pay securely via Payfast, and get
+browse products, add them to a cart, pay securely via Stitch, and get
 nationwide delivery via Aramex. Built as a decoupled FastAPI (Python) API
 and a React (TypeScript) frontend, running entirely in Docker.
 
@@ -14,7 +14,7 @@ and a React (TypeScript) frontend, running entirely in Docker.
 | Backend    | FastAPI, SQLAlchemy 2.0 (async), Alembic, PostgreSQL 17   |
 | Frontend   | React 18, TypeScript, Vite, Tailwind CSS, Framer Motion   |
 | State      | Zustand (cart), guest session key (no forced login)      |
-| Payments   | Payfast (South African gateway — card, EFT, Instant EFT)  |
+| Payments   | Stitch (card and Pay by Bank, on Stitch's hosted page)    |
 | Infra      | Docker, Docker Compose, Nginx (static + API proxy)        |
 | HTTPS      | Caddy, with automatic Let's Encrypt certificates          |
 | Notifications | Order email (SMTP) and WhatsApp (Meta Cloud API or Twilio) |
@@ -28,7 +28,7 @@ backend/
     models/       # SQLAlchemy ORM models
     schemas/     # Pydantic request/response models
     api/routes/  # FastAPI routers (products, categories, cart, orders, auth, payments)
-    services/    # Payfast integration
+    services/    # Stitch integration, settlement, email, WhatsApp
     seed.py      # idempotent demo data
   alembic/       # database migrations
 frontend/
@@ -78,7 +78,7 @@ empty. Seeding is idempotent — safe to restart the stack.
 2. **Shop** — full catalogue with search + category filters
 3. **Product Detail** — gallery, quantity picker, add to cart
 4. **Cart** — line-item editing, live totals
-5. **Checkout** — shipping details, redirects to Payfast's hosted payment page
+5. **Checkout** — shipping details, redirects to Stitch's hosted payment page
 6. **Order Success** — confirmation + order summary
 7. **About** / **Contact** — brand + support info
 
@@ -89,18 +89,23 @@ hero section, and cart interactions.
 ## Payments — how money actually reaches your bank account
 
 Card numbers are **never** sent to or stored by this application. Checkout
-posts an order total to Payfast's hosted payment page (`build_checkout_fields`
-in `backend/app/services/payfast.py`), which handles card capture on its own
-PCI-compliant infrastructure. Payfast then:
+creates a payment request at Stitch (`create_payment_request` in
+`backend/app/services/stitch.py`) and sends the customer to Stitch's hosted
+page, where they pay by card or straight from their bank. Then:
 
-1. Notifies our backend via a signed server-to-server callback
-   (`POST /api/payments/payfast/notify`), which verifies the signature,
-   re-confirms the payload with Payfast's own servers, checks the amount,
-   and marks the order paid.
-2. Settles funds into whatever South African bank account is linked on
-   your own Payfast merchant dashboard (https://www.payfast.co.za) —
-   there is nothing to configure in this codebase besides your merchant
-   ID/key/passphrase (`PAYFAST_*` env vars).
+1. The customer comes back to `/order-success`, which asks the backend
+   (`POST /api/payments/confirm`) whether the order is paid. The backend
+   does not believe the browser: it asks Stitch, server to server, checks
+   the amount and the order it belongs to, and only then marks it paid.
+2. Stitch also calls a signed webhook (`POST /api/payments/stitch/webhook`),
+   which catches customers who pay and close the tab. Its body is not
+   believed either — it only says which order to go and check.
+3. Funds settle into the bank account Stitch holds for the business.
+   There is nothing to configure here beyond the `STITCH_*` settings.
+
+Until `STITCH_CLIENT_ID` and `STITCH_CLIENT_SECRET` are both set, checkout
+says card payments open soon and offers a WhatsApp handover instead, and
+the API refuses to record an order nobody can pay for.
 
 ### Going live — the quick way
 
@@ -117,9 +122,9 @@ tells you exactly which records to create if it isn't pointing at the
 server yet, and it never overwrites an existing `.env`, so it doubles as
 the redeploy command.
 
-It deliberately starts in **Payfast sandbox mode** — no real money moves
-until you put your live merchant details in `.env` and set
-`PAYFAST_MODE=live`.
+Card payments stay **closed** until you put Stitch credentials in `.env`.
+Start with a Stitch test client (its id begins `test-`, no real money
+moves), test a payment end to end, then swap in the live client.
 
 The rest of this section is the same thing done by hand, and explains what
 each part is for.
@@ -166,17 +171,15 @@ cp .env.example .env
 | `SECRET_KEY` | output of `python3 -c "import secrets; print(secrets.token_urlsafe(48))"` |
 | `BACKEND_CORS_ORIGINS` | `https://your-domain.co.za` |
 | `STORE_URL` | `https://your-domain.co.za` |
-| `PAYFAST_MODE` | `live` |
-| `PAYFAST_MERCHANT_ID` / `_KEY` / `_PASSPHRASE` | from your Payfast dashboard |
-| `PAYFAST_RETURN_URL` | `https://your-domain.co.za/order-success` |
-| `PAYFAST_CANCEL_URL` | `https://your-domain.co.za/cart` |
-| `PAYFAST_NOTIFY_URL` | `https://your-domain.co.za/api/payments/payfast/notify` |
+| `STITCH_CLIENT_ID` / `STITCH_CLIENT_SECRET` | from Stitch (test client first, then live) |
+| `STITCH_WEBHOOK_SECRET` | signing secret of the webhook you add at Stitch |
 
-`PAYFAST_NOTIFY_URL` is the one people get wrong. Payfast calls it from its
-own servers, so it must be your public domain. Left as `localhost`,
-customers can still pay but **no order is ever marked paid** — and no
-confirmation email or WhatsApp is ever sent, because both are triggered by
-that callback.
+`STORE_URL` is the one people get wrong. Stitch returns customers to
+`STORE_URL/order-success`, so it must be your public `https://` domain and
+it must be on the client's redirect whitelist at Stitch. At Stitch, add a
+webhook for the `payment` event pointing at
+`https://your-domain.co.za/api/payments/stitch/webhook` — without it, a
+customer who pays and closes the tab stays "pending" until you check.
 
 **4. Start it with HTTPS:**
 
@@ -206,12 +209,14 @@ order marked paid, confirmation email.
 
 ### What the code refuses to let you get wrong
 
-With `PAYFAST_MODE=live`, the backend will not start if:
+With a live Stitch client (one whose id does not start `test-`), the
+backend will not start if:
 
 - `SECRET_KEY` is still a placeholder from the repo,
 - the database password is still `change-me` (or another obvious default),
-- `BACKEND_CORS_ORIGINS` contains a plain `http://` domain, since a live
-  store taking payments must be served over HTTPS.
+- `BACKEND_CORS_ORIGINS` contains a plain `http://` domain, or `STORE_URL`
+  is not `https://`, since a live store taking payments must be served
+  over HTTPS.
 
 Each refusal names the setting and what to do. This is deliberate: these
 are silent problems otherwise.
@@ -230,15 +235,15 @@ are silent problems otherwise.
 Responses carry `X-Content-Type-Options`, `X-Frame-Options`,
 `Referrer-Policy`, `Permissions-Policy`, HSTS (from Caddy) and a Content
 Security Policy. The CSP allows exactly what the site needs — Google Fonts,
-and form submissions to Payfast. **If you ever change the payment provider,
-its domain has to be added to `form-action` in
-`frontend/security-headers.conf`, or checkout will silently stop working.**
+and nothing else. Stitch's page is reached by an ordinary redirect, so
+`form-action` stays `'self'`.
 
 Checkout is rate limited to 20 requests a minute per IP, and the account
 routes to 10. Browsing and cart traffic are deliberately not limited:
 mobile networks here put many customers behind one IP, so a shared limit
-would eventually lock real shoppers out of their own carts. The Payfast
-callback is never limited.
+would eventually lock real shoppers out of their own carts. The payment
+check is limited to 30 a minute (the success page asks up to ten times per
+order), and Stitch's webhook is never limited.
 
 ### Backups
 
@@ -262,7 +267,7 @@ Worth running daily from cron once you are taking orders:
 
 ## Order notification emails
 
-The moment Payfast confirms a payment, two emails go out:
+The moment Stitch confirms a payment, two emails go out:
 
 - **To the shop owner** (`SHOP_OWNER_EMAIL`, default
   `Heinrichcdoman@gmail.com`) — what was bought, what was paid, and the
@@ -273,7 +278,8 @@ The moment Payfast confirms a payment, two emails go out:
   totals, delivery address and courier. Replying reaches the shop.
 
 Nothing is emailed for an unpaid order, so abandoned checkouts don't fill
-the inbox, and a Payfast retry of the same confirmation doesn't send twice.
+the inbox, and a repeated confirmation (the success page asking again, or
+Stitch's webhook) doesn't send twice.
 
 ### Turning it on
 
@@ -299,11 +305,9 @@ password*:
 
 Then `docker compose up --build`.
 
-> **This depends on `PAYFAST_NOTIFY_URL` being publicly reachable.** Emails
-> are triggered by Payfast's confirmation callback, so on a local setup
-> where the notify URL is `localhost`, orders never reach paid and no email
-> is ever sent — the same condition described in the go-live checklist
-> above. Test emails on the deployed site, not on your laptop.
+> **Emails are sent when an order is marked paid**, which needs a working
+> Stitch client — test or live. Without Stitch credentials checkout is
+> closed, so no order reaches paid and no email is sent.
 
 If the mail server is unreachable or the password is wrong, the order is
 still recorded and marked paid — the failure is logged (`docker compose
@@ -327,8 +331,8 @@ The same two emails, from the same settings, are sent by
 Leave them unset and the shop works exactly as before, silently sending
 nothing. Failures are logged under **Netlify → Logs → Functions**.
 
-Unlike the Docker backend, the send is awaited inside the Payfast callback
-rather than backgrounded: a serverless instance is frozen the moment it
+Unlike the Docker backend, the send is awaited inside the payment
+confirmation rather than backgrounded: a serverless instance is frozen the moment it
 answers, so work left running after the response would never finish.
 
 ## WhatsApp order confirmation
@@ -414,9 +418,8 @@ register the template with Twilio and set `TWILIO_CONTENT_SID` to its id.
 
 ### Notes
 
-- Like email, this is triggered by Payfast's confirmation callback, so it
-  needs `PAYFAST_NOTIFY_URL` to be publicly reachable — nothing sends on a
-  localhost setup.
+- Like email, this is sent when Stitch confirms a payment, so nothing
+  sends until a Stitch client is configured.
 - A failure never costs a sale: the order stays paid and the reason is
   logged (`docker compose logs backend`). An unapproved template or expired
   token shows up there with the provider's own explanation.
@@ -434,7 +437,7 @@ docker compose exec db psql -U meravo -d meravo -c \
 ```
 
 Only orders with `status = PAID` have actually been paid for. `PENDING`
-means the customer started checkout but Payfast has not confirmed payment
+means the customer started checkout but Stitch has not confirmed payment
 (they may have abandoned it). Note the status is stored in **capitals** in
 the database (`PENDING`, `PAID`, `FAILED`, `CANCELLED`, `SHIPPED`,
 `COMPLETE`) even though the website shows it in lowercase — SQL below must
@@ -494,7 +497,7 @@ rather than a code change:
 - Stock is enforced server-side on every cart add/update (the UI's
   quantity controls can be bypassed by calling the API directly), and
   again at checkout — a cart can sit for days, so the last unit may have
-  sold since it was added. It is drawn down once, when Payfast confirms
+  sold since it was added. It is drawn down once, when Stitch confirms
   payment — not at checkout, so an abandoned payment never eats stock.
 - The Shop page loads the catalogue a page at a time with a "Load more"
   button, so adding products never pushes older ones out of reach.
@@ -521,7 +524,8 @@ npm run dev
 ## Testing
 
 Backend (unit tests + real integration tests against Postgres — cart,
-checkout/shipping math, auth, Payfast notify):
+checkout/shipping math, auth, Stitch payments against a stand-in Stitch
+server in `tests/fake_stitch.py`):
 ```bash
 cd backend
 createdb meravo_test   # once, if it doesn't exist yet
@@ -554,7 +558,7 @@ npm run test:functions
 deployment target: a Node/TypeScript mirror of the same API — same schema,
 same shipping rules, same order emails — backed by Postgres (Netlify DB /
 Neon). It needs no server of your own, which is why meravo.co.za runs on
-it. **It takes payment through Stitch, not Payfast** (below). See
+it. It takes payment through Stitch, like the Docker backend (below). See
 **NEXT-STEPS.md** for the launch steps.
 
 To deploy: create a Netlify site, link this repository, and set
@@ -586,17 +590,14 @@ WhatsApp handover with the basket filled in, and the API refuses the order
 rather than recording one nobody can pay for. Put the credentials in and it
 opens on its own; `PAYMENTS_ENABLED=false` closes it by hand (it cannot
 force checkout open without credentials).
-**Not yet mirrored in the FastAPI backend** - the Docker deployment still
-shows the pay button regardless.
 
-### Stitch (Netlify deployment only)
 
-The Netlify functions take payment through **Stitch** (stitch.money) only:
-card and Pay by Bank on Stitch's hosted page, created with
-`clientPaymentInitiationRequestCreate`. Payfast was removed from this
-deployment; leftover `PAYFAST_*` variables are ignored. Orders paid
-through Payfast before then keep `payment_provider = 'payfast'` in the
-database. Setup is in **NEXT-STEPS.md**. The pieces:
+### Stitch on Netlify
+
+The Netlify functions take payment through **Stitch** (stitch.money): card
+and Pay by Bank on Stitch's hosted page, created with
+`clientPaymentInitiationRequestCreate`. Setup is in **NEXT-STEPS.md**. The
+pieces:
 
 | File | Does |
 | --- | --- |
@@ -625,8 +626,10 @@ and the live API is a setting rather than a code change.
 Tests run against `_shared/fake-stitch-server.mts`, a stand-in Stitch over
 real HTTP (`stitch.test.mts`, `stitch-flow.test.mts`).
 
-**Not in the FastAPI backend.** The Docker deployment is still Payfast
-only, so the two deployments differ here.
+The FastAPI backend does the same in `app/services/stitch.py`,
+`app/services/settlement.py` and `app/api/routes/payments.py`, with the
+same endpoints, so the one storefront works against either. One difference:
+the backend refuses every webhook until `STITCH_WEBHOOK_SECRET` is set.
 
 The two deployments are kept in sync by hand, so a change to one is a
 change to both. Guard rails for that:
