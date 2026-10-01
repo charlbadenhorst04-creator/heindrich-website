@@ -71,3 +71,58 @@ describe("whether payments are open", () => {
     assert.equal(paymentsStatus().message, "Bel ons op 067 157 2670.");
   });
 });
+
+describe("which provider takes the payment", () => {
+  beforeEach(() => configure({}));
+
+  it("uses Stitch when Stitch's credentials are in place", () => {
+    configure({ STITCH_CLIENT_ID: "test-meravo", STITCH_CLIENT_SECRET: "secret" });
+    const status = paymentsStatus();
+    assert.equal(status.enabled, true);
+    assert.equal(status.provider, "stitch");
+  });
+
+  it("prefers Stitch when both accounts are set up", () => {
+    configure({
+      STITCH_CLIENT_ID: "test-meravo",
+      STITCH_CLIENT_SECRET: "secret",
+      PAYFAST_MERCHANT_ID: "20000123",
+      PAYFAST_MERCHANT_KEY: "abc123def456",
+    });
+    assert.equal(paymentsStatus().provider, "stitch");
+  });
+
+  it("falls back to Payfast when only Payfast is configured", () => {
+    configure({ PAYFAST_MERCHANT_ID: "20000123", PAYFAST_MERCHANT_KEY: "abc123def456" });
+    assert.equal(paymentsStatus().provider, "payfast");
+  });
+
+  it("stays closed, rather than quietly switching, when the pinned provider is not configured", () => {
+    // Someone who pins Stitch and forgets the secret should see checkout
+    // close - not watch money route to an account they meant to retire.
+    configure({
+      PAYMENT_PROVIDER: "stitch",
+      PAYFAST_MERCHANT_ID: "20000123",
+      PAYFAST_MERCHANT_KEY: "abc123def456",
+    });
+    const status = paymentsStatus();
+    assert.equal(status.enabled, false);
+    assert.equal(status.provider, null);
+  });
+
+  it("honours a pin to Payfast even with Stitch configured", () => {
+    configure({
+      PAYMENT_PROVIDER: "payfast",
+      STITCH_CLIENT_ID: "test-meravo",
+      STITCH_CLIENT_SECRET: "secret",
+      PAYFAST_MERCHANT_ID: "20000123",
+      PAYFAST_MERCHANT_KEY: "abc123def456",
+    });
+    assert.equal(paymentsStatus().provider, "payfast");
+  });
+
+  it("needs both halves of Stitch's credentials", () => {
+    configure({ STITCH_CLIENT_ID: "test-meravo" });
+    assert.equal(paymentsStatus().enabled, false);
+  });
+});

@@ -139,12 +139,38 @@ export function buildCheckoutFields(opts: {
   return fields;
 }
 
+/**
+ * Where an ITN is posted back for Payfast to vouch for.
+ *
+ * Overridable only outside live mode, so the test suite can stand in for
+ * Payfast - and so no setting on a live store can redirect this check to a
+ * server that would answer VALID to anything.
+ */
+function validateUrl(): string {
+  const override = env("PAYFAST_VALIDATE_URL").trim();
+  if (override && payfastMode() !== "live") return override;
+  return `${payfastHost()}/eng/query/validate`;
+}
+
+/**
+ * Mirrors the FastAPI backend: a network failure or a slow Payfast is
+ * "not confirmed", never an exception. Payfast treats any non-200 as
+ * "retry later", so declining here keeps that retry while leaving the
+ * order untouched - far safer than settling a payment nobody vouched for,
+ * and a hung request no longer holds the function open until it is killed.
+ */
 export async function verifyItnWithPayfast(rawBody: Record<string, string>): Promise<boolean> {
-  const response = await fetch(`${payfastHost()}/eng/query/validate`, {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams(rawBody).toString(),
-  });
-  const text = await response.text();
-  return text.trim() === "VALID";
+  try {
+    const response = await fetch(validateUrl(), {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams(rawBody).toString(),
+      signal: AbortSignal.timeout(10_000),
+    });
+    const text = await response.text();
+    return text.trim() === "VALID";
+  } catch (error) {
+    console.error("Payfast ITN validation could not be completed", error);
+    return false;
+  }
 }

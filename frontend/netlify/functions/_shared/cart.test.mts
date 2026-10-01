@@ -270,7 +270,10 @@ test("checkout sends Payfast the configured URLs, not ones it invents", async ()
   );
   const data = await res.json();
 
-  assert.equal(data.fields.return_url, "https://meravo.co.za/order-success");
+  // The order id rides on the return address: Payfast sends the customer
+  // back to it verbatim, and without it the success page has no way to
+  // find the order it is meant to be confirming.
+  assert.equal(data.fields.return_url, `https://meravo.co.za/order-success?order=${data.order_id}`);
   assert.equal(data.fields.cancel_url, "https://meravo.co.za/cart");
   assert.equal(data.fields.notify_url, "https://meravo.co.za/api/payments/payfast/notify");
   for (const url of [data.fields.return_url, data.fields.cancel_url, data.fields.notify_url]) {

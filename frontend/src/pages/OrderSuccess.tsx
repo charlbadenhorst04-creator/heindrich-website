@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 
 import { api } from "../api/client";
@@ -7,25 +7,151 @@ import { useCartStore } from "../store/cartStore";
 import type { Order } from "../api/types";
 import { formatZAR } from "../utils/format";
 
+/** How long to keep asking while a payment is still being confirmed. */
+const CONFIRM_ATTEMPTS = 10;
+const CONFIRM_INTERVAL_MS = 3000;
+
+type View = "checking" | "paid" | "confirming" | "not-completed" | "failed" | "missing";
+
 export default function OrderSuccess() {
   const [searchParams] = useSearchParams();
-  const orderId = searchParams.get("m_payment_id") ?? searchParams.get("order_id");
+  // Payfast returns to the address we gave it, which carries ?order=.
+  // Stitch adds externalReference (our order id), id and status itself.
+  const orderId =
+    searchParams.get("order") ??
+    searchParams.get("externalReference") ??
+    searchParams.get("m_payment_id") ??
+    searchParams.get("order_id");
+  // What the payment page said on the way back. Only ever used to choose
+  // wording - anyone can edit a URL, so it decides nothing about money.
+  const returnedStatus = searchParams.get("status");
+  const customerGaveUp = returnedStatus === "closed" || returnedStatus === "failed";
+
   const [order, setOrder] = useState<Order | null>(null);
+  const [view, setView] = useState<View>(orderId ? "checking" : "missing");
   const startNewSession = useCartStore((s) => s.startNewSession);
+  const cleared = useRef(false);
 
   useEffect(() => {
-    if (orderId) {
-      api.getOrder(orderId).then(setOrder).catch(() => setOrder(null));
-    }
-    startNewSession();
-  }, [orderId, startNewSession]);
+    if (!orderId) return;
+    let cancelled = false;
+
+    // Emptied only once the customer has plausibly paid. Someone who closed
+    // the payment page keeps their basket so they can simply try again.
+    const clearCart = () => {
+      if (!cleared.current) {
+        cleared.current = true;
+        startNewSession();
+      }
+    };
+
+    api.getOrder(orderId).then((o) => !cancelled && setOrder(o)).catch(() => {});
+
+    (async () => {
+      for (let attempt = 0; attempt < CONFIRM_ATTEMPTS && !cancelled; attempt++) {
+        let status: string | null = null;
+        try {
+          status = (await api.confirmPayment(orderId)).status;
+        } catch {
+          // Treated like "not confirmed yet"; the next attempt may succeed.
+        }
+        if (cancelled) return;
+
+        if (status === "paid") {
+          clearCart();
+          setView("paid");
+          // Refreshed so the summary reflects the settled order.
+          api.getOrder(orderId).then((o) => !cancelled && setOrder(o)).catch(() => {});
+          return;
+        }
+        if (status === "failed") {
+          setView("failed");
+          return;
+        }
+        if (customerGaveUp) {
+          setView("not-completed");
+          return;
+        }
+        // Back from the payment page without a "closed": most likely paid,
+        // with confirmation a few seconds behind. Say so, and keep asking.
+        clearCart();
+        setView("confirming");
+        await new Promise((resolve) => setTimeout(resolve, CONFIRM_INTERVAL_MS));
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [orderId, customerGaveUp, startNewSession]);
+
+  if (view === "missing") {
+    return (
+      <div className="mx-auto max-w-2xl px-4 py-24 text-center sm:px-6 lg:px-8">
+        <h1 className="font-display text-3xl text-maroon-800">We couldn't find that order</h1>
+        <p className="mt-2 text-maroon-900/60">
+          If you've just paid, check your email for the confirmation, or{" "}
+          <Link to="/contact" className="text-maroon-700 underline hover:text-maroon-800">
+            get in touch
+          </Link>{" "}
+          and we'll look it up for you.
+        </p>
+        <Link
+          to="/shop"
+          className="mt-10 inline-block rounded-full bg-maroon-700 px-8 py-3 text-sm font-semibold text-white hover:bg-maroon-800"
+        >
+          Continue Shopping
+        </Link>
+      </div>
+    );
+  }
+
+  if (view === "not-completed" || view === "failed") {
+    return (
+      <div className="mx-auto max-w-2xl px-4 py-24 text-center sm:px-6 lg:px-8">
+        <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-blush-100 text-maroon-700">
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m0 3.75h.008M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+        </div>
+        <h1 className="mt-6 font-display text-3xl text-maroon-800">
+          {view === "failed" ? "Your payment didn't go through" : "Payment not completed"}
+        </h1>
+        <p className="mt-2 text-maroon-900/60">
+          No money has been taken. Your basket is still saved, so you can try again whenever
+          you're ready.
+        </p>
+        <div className="mt-10 flex flex-wrap justify-center gap-3">
+          <Link
+            to="/checkout"
+            className="inline-block rounded-full bg-maroon-700 px-8 py-3 text-sm font-semibold text-white hover:bg-maroon-800"
+          >
+            Try again
+          </Link>
+          <Link
+            to="/contact"
+            className="inline-block rounded-full px-8 py-3 text-sm font-semibold text-maroon-700 ring-1 ring-maroon-200 hover:bg-blush-50"
+          >
+            Get help
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  const confirming = view === "checking" || view === "confirming";
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-24 text-center sm:px-6 lg:px-8">
       <motion.div
+        key={confirming ? "confirming" : "paid"}
         initial={{ scale: 0.6, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        transition={{ type: "spring", stiffness: 200, damping: 15 }}
+        animate={confirming ? { scale: [0.95, 1.05, 0.95], opacity: 0.5 } : { scale: 1, opacity: 1 }}
+        transition={
+          confirming
+            ? { duration: 1.6, repeat: Infinity, ease: "easeInOut" }
+            : { type: "spring", stiffness: 200, damping: 15 }
+        }
         className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-maroon-700 text-white"
       >
         <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -33,19 +159,25 @@ export default function OrderSuccess() {
         </svg>
       </motion.div>
 
-      <h1 className="mt-6 font-display text-3xl text-maroon-800">Thank you for your order!</h1>
-      {/* The confirmation email is sent when Payfast confirms the payment,
-          which can land a moment after this page does - hence "on its way"
-          rather than "has been sent". */}
-      <p className="mt-2 text-maroon-900/60">
-        We've received your order and a confirmation email is on its way
-        {order ? ` to ${order.customer_email}` : ""}. Keep your order reference below and
-        quote it any time you{" "}
-        <Link to="/contact" className="text-maroon-700 underline hover:text-maroon-800">
-          get in touch
-        </Link>
-        .
-      </p>
+      <h1 className="mt-6 font-display text-3xl text-maroon-800">
+        {confirming ? "Confirming your payment…" : "Thank you for your order!"}
+      </h1>
+      {confirming ? (
+        <p className="mt-2 text-maroon-900/60">
+          This usually takes a few seconds. You don't need to pay again — you'll get an email
+          {order ? ` at ${order.customer_email}` : ""} as soon as it's through.
+        </p>
+      ) : (
+        <p className="mt-2 text-maroon-900/60">
+          Your payment is confirmed and a confirmation email is on its way
+          {order ? ` to ${order.customer_email}` : ""}. Keep your order reference below and
+          quote it any time you{" "}
+          <Link to="/contact" className="text-maroon-700 underline hover:text-maroon-800">
+            get in touch
+          </Link>
+          .
+        </p>
+      )}
 
       {order && (
         <div className="mt-8 rounded-2xl bg-white p-6 text-left ring-1 ring-maroon-100">

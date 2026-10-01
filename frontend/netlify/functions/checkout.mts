@@ -2,13 +2,21 @@ import crypto from "node:crypto";
 import type { Config } from "@netlify/functions";
 import { readyDb, errorResponse, jsonResponse } from "./_shared/db.mts";
 import { env } from "./_shared/env.mts";
+import { providerUrl } from "./_shared/origin.mts";
 import { paymentsStatus } from "./_shared/payments.mts";
 import { getOrCreateCart } from "./_shared/cart.mts";
 import { buildCheckoutFields, payfastHost } from "./_shared/payfast.mts";
+import { StitchError, createPaymentRequest } from "./_shared/stitch.mts";
 import { COURIER_NAME, computeShippingFee } from "./_shared/shipping.mts";
 
 export default async (req: Request) => {
-  const body = await req.json();
+  let body: any;
+  try {
+    body = await req.json();
+  } catch {
+    return errorResponse("Expected a JSON body");
+  }
+  if (!body || typeof body !== "object") return errorResponse("Expected a JSON body");
   const {
     session_key: sessionKey,
     customer_email: customerEmail,
@@ -65,14 +73,15 @@ export default async (req: Request) => {
   const shippingFee = computeShippingFee(subtotal);
   const total = subtotal + shippingFee;
 
+  const provider = payments.provider ?? "payfast";
   const orderId = crypto.randomUUID();
   await database.sql`
     INSERT INTO orders (
       id, customer_email, customer_name, shipping_address, city, postal_code, province, phone,
-      subtotal_amount, shipping_fee, total_amount, courier
+      subtotal_amount, shipping_fee, total_amount, courier, payment_provider
     ) VALUES (
       ${orderId}, ${customerEmail}, ${customerName}, ${shippingAddress}, ${city}, ${postalCode}, ${province}, ${phone},
-      ${subtotal}, ${shippingFee}, ${total}, ${COURIER_NAME}
+      ${subtotal}, ${shippingFee}, ${total}, ${COURIER_NAME}, ${provider}
     )
   `;
 
@@ -84,26 +93,54 @@ export default async (req: Request) => {
     `;
   }
 
-  // PAYFAST_RETURN_URL / _CANCEL_URL / _NOTIFY_URL are what the setup
-  // documents, what the FastAPI backend uses, and what has to change when
-  // the shop moves to its own domain. This used to ignore them and build
-  // the URLs from Netlify's own URL variable instead, so setting them did
-  // nothing - and if that variable was not there at runtime, Payfast was
-  // handed "/order-success" as a return address and refused the whole
-  // payment with 400 Bad Request.
-  const siteUrl = (env("STORE_URL") || env("URL")).replace(/\/+$/, "");
+  if (provider === "stitch") {
+    // The order id goes back in as externalReference rather than on the
+    // return address: Stitch matches redirect_uri against a whitelist, and a
+    // query string per order would never match it.
+    try {
+      const request = await createPaymentRequest({
+        orderId,
+        amount: total,
+        returnUrl: providerUrl(req, "", "/order-success"),
+      });
+      await database.sql`
+        UPDATE orders SET provider_reference = ${request.id} WHERE id = ${orderId}
+      `;
+      return jsonResponse({ order_id: orderId, provider, redirect_url: request.redirectUrl });
+    } catch (error) {
+      // The order row stays (pending, no reference) so the attempt is on
+      // record, but the customer gets a plain answer rather than a 500.
+      console.error(`Order ${orderId}: could not create the Stitch payment`, error);
+      const detail =
+        error instanceof StitchError
+          ? "We couldn't open the secure payment page just now. Please try again in a moment."
+          : "Something went wrong preparing your payment. Please try again.";
+      return errorResponse(detail, 502);
+    }
+  }
+
+  // The addresses follow whichever domain the customer is on, so nothing
+  // here needs changing when the shop moves to meravo.co.za. The PAYFAST_*
+  // variables are honoured only when the request's host is unrecognised.
   const fields = buildCheckoutFields({
     orderId,
     amount: total,
     itemName: `MERAVO order ${orderId}`,
     customerEmail,
     customerName,
-    returnUrl: env("PAYFAST_RETURN_URL") || `${siteUrl}/order-success`,
-    cancelUrl: env("PAYFAST_CANCEL_URL") || `${siteUrl}/cart`,
-    notifyUrl: env("PAYFAST_NOTIFY_URL") || `${siteUrl}/api/payments/payfast/notify`,
+    // Payfast returns the customer to this address exactly as given, so the
+    // order id has to be on it for the success page to find the order.
+    returnUrl: providerUrl(req, env("PAYFAST_RETURN_URL") && `${env("PAYFAST_RETURN_URL")}?order=${orderId}`, `/order-success?order=${orderId}`),
+    cancelUrl: providerUrl(req, env("PAYFAST_CANCEL_URL"), "/cart"),
+    notifyUrl: providerUrl(req, env("PAYFAST_NOTIFY_URL"), "/api/payments/payfast/notify"),
   });
 
-  return jsonResponse({ order_id: orderId, action_url: `${payfastHost()}/eng/process`, fields });
+  return jsonResponse({
+    order_id: orderId,
+    provider: "payfast",
+    action_url: `${payfastHost()}/eng/process`,
+    fields,
+  });
 };
 
 export const config: Config = {

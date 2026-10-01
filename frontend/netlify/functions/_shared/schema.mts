@@ -87,6 +87,13 @@ CREATE TABLE IF NOT EXISTS orders (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+-- Added when Stitch joined Payfast as a provider. ADD COLUMN IF NOT EXISTS
+-- so a database created before then is brought forward in place, with
+-- existing orders read as Payfast ones, which is what they were.
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_provider TEXT NOT NULL DEFAULT 'payfast';
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS provider_reference TEXT NOT NULL DEFAULT '';
+CREATE INDEX IF NOT EXISTS idx_orders_provider_reference ON orders (provider_reference);
+
 CREATE TABLE IF NOT EXISTS order_items (
   id UUID PRIMARY KEY,
   order_id UUID NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
@@ -179,6 +186,7 @@ const RACE_CODES = new Set([
   "42P07", // duplicate_table
   "42P06", // duplicate_schema
   "42710", // duplicate_object
+  "42701", // duplicate_column - two instances adding the same column
 ]);
 
 function isConcurrentCreationRace(error: any): boolean {

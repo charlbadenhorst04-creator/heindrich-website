@@ -1,9 +1,8 @@
 import type { Config } from "@netlify/functions";
 import { isUuid, readyDb } from "./_shared/db.mts";
-import { sendOrderEmails } from "./_shared/email.mts";
+import { env } from "./_shared/env.mts";
 import { signatureMatches, verifyItnWithPayfast } from "./_shared/payfast.mts";
-
-const PAYFAST_PASSPHRASE = Netlify.env.get("PAYFAST_PASSPHRASE") ?? "";
+import { settleFailed, settlePaid } from "./_shared/settle.mts";
 
 export default async (req: Request) => {
   const raw = await req.text();
@@ -11,7 +10,7 @@ export default async (req: Request) => {
   const data: Record<string, string> = {};
   for (const [key, value] of params.entries()) data[key] = value;
 
-  if (!signatureMatches(data, PAYFAST_PASSPHRASE)) {
+  if (!signatureMatches(data, env("PAYFAST_PASSPHRASE"))) {
     return new Response("invalid signature", { status: 400 });
   }
 
@@ -47,59 +46,23 @@ export default async (req: Request) => {
   }
 
   // Payfast retries an ITN until it gets a 200, so the same notification
-  // can legitimately arrive more than once. Settle stock exactly once and
-  // never walk an already-paid order back to a failed state.
-  const alreadyPaid = orders[0].status === "paid";
-  const paymentComplete = (data.payment_status ?? "") === "COMPLETE";
+  // can legitimately arrive more than once. settlePaid lets exactly one of
+  // them take the stock and send the emails; a "failed" notice can never
+  // walk an already-paid order back.
   const paymentId = data.pf_payment_id ?? "";
+  await database.sql`
+    UPDATE orders SET payfast_payment_id = ${paymentId}, provider_reference = ${paymentId}
+    WHERE id = ${orderId}
+  `;
 
-  if (paymentComplete && !alreadyPaid) {
-    await database.sql`
-      UPDATE orders SET status = 'paid', payfast_payment_id = ${paymentId} WHERE id = ${orderId}
-    `;
-    await database.sql`
-      UPDATE products p
-      SET stock = GREATEST(0, p.stock - oi.quantity)
-      FROM order_items oi
-      WHERE oi.order_id = ${orderId} AND oi.product_id = p.id
-    `;
-    // Only on the transition to paid, so Payfast's retries cannot mail the
-    // same order twice. Awaited rather than left running, because a
-    // serverless instance is frozen the moment the response is returned -
-    // a background send would simply never happen.
-    await notify(database, orderId);
-  } else if (!alreadyPaid) {
-    await database.sql`
-      UPDATE orders SET status = 'failed', payfast_payment_id = ${paymentId} WHERE id = ${orderId}
-    `;
+  if ((data.payment_status ?? "") === "COMPLETE") {
+    await settlePaid(database, orderId);
   } else {
-    await database.sql`
-      UPDATE orders SET payfast_payment_id = ${paymentId} WHERE id = ${orderId}
-    `;
+    await settleFailed(database, orderId);
   }
 
   return new Response("OK", { status: 200 });
 };
-
-/**
- * Tell the shop owner and the customer about a paid order.
- *
- * Swallows everything. Payfast keeps retrying an ITN until it gets a 200,
- * so letting a mail or database hiccup escape here would mean a paid order
- * is settled repeatedly - or never confirmed at all.
- */
-async function notify(database: any, orderId: string): Promise<void> {
-  try {
-    const orders = await database.sql`SELECT * FROM orders WHERE id = ${orderId}`;
-    if (orders.length === 0) return;
-    const items = await database.sql`
-      SELECT product_name, unit_price, quantity FROM order_items WHERE order_id = ${orderId}
-    `;
-    await sendOrderEmails({ ...orders[0], items });
-  } catch (error) {
-    console.error(`Order ${orderId}: could not send notifications`, error);
-  }
-}
 
 export const config: Config = {
   path: "/api/payments/payfast/notify",

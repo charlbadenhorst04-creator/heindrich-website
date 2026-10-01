@@ -47,20 +47,27 @@ export interface CheckoutPayload {
   phone?: string;
 }
 
-export interface PayfastInitiateResponse {
+/** Payfast is handed over by posting a signed form; Stitch by redirecting
+ * to its hosted page. */
+export type CheckoutResponse =
+  | { order_id: string; provider?: "payfast"; action_url: string; fields: Record<string, string> }
+  | { order_id: string; provider: "stitch"; redirect_url: string };
+
+export interface PaymentConfirmation {
   order_id: string;
-  action_url: string;
-  fields: Record<string, string>;
+  status: "pending" | "paid" | "failed" | string;
 }
 
 export interface Order {
   id: string;
   customer_email: string;
   customer_name: string;
-  shipping_address: string;
-  city: string;
-  postal_code: string;
-  province: string;
+  // Not returned by the public order endpoint on the Netlify deployment,
+  // which keeps the delivery address out of anything reachable by URL.
+  shipping_address?: string;
+  city?: string;
+  postal_code?: string;
+  province?: string;
   subtotal_amount: number;
   shipping_fee: number;
   total_amount: number;
@@ -83,6 +90,7 @@ export interface ShippingConfig {
   // Absent on deployments that predate the payments switch, so anything
   // other than an explicit false means the shop is taking card payments.
   payments_enabled?: boolean;
+  payments_provider?: "stitch" | "payfast" | null;
   payments_message?: string;
   whatsapp_number?: string;
 }

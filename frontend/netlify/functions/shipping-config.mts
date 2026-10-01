@@ -17,6 +17,7 @@ export default async () => {
     free_shipping_threshold: FREE_SHIPPING_THRESHOLD,
     estimated_delivery: ESTIMATED_DELIVERY_DAYS,
     payments_enabled: payments.enabled,
+    payments_provider: payments.provider,
     payments_message: payments.message,
     whatsapp_number: env("SHOP_WHATSAPP_NUMBER") || env("SHOP_CONTACT_PHONE", "067 157 2670"),
   });

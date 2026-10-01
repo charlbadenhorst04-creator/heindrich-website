@@ -4,8 +4,9 @@ import type {
   CartResponse,
   CheckoutPayload,
   Category,
+  CheckoutResponse,
   Order,
-  PayfastInitiateResponse,
+  PaymentConfirmation,
   ProductListResponse,
   Product,
   ShippingConfig,
@@ -51,7 +52,13 @@ export const api = {
     return data;
   },
   checkout: async (payload: CheckoutPayload) => {
-    const { data } = await client.post<PayfastInitiateResponse>("/orders/checkout", payload);
+    const { data } = await client.post<CheckoutResponse>("/orders/checkout", payload);
+    return data;
+  },
+  confirmPayment: async (orderId: string) => {
+    const { data } = await client.post<PaymentConfirmation>("/payments/confirm", {
+      order_id: orderId,
+    });
     return data;
   },
   getOrder: async (orderId: string) => {

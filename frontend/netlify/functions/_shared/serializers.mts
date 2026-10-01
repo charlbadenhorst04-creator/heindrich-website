@@ -12,15 +12,20 @@ export function toProductRead(row: any) {
   };
 }
 
+/**
+ * The order as the public order endpoint returns it.
+ *
+ * That endpoint answers anyone who holds the order id - which travels in the
+ * success page's address - so it returns only what that page shows. The
+ * delivery address, city, postal code, province and phone number stay in
+ * the database and the shop owner's email; nobody browsing to the order's
+ * URL needs them.
+ */
 export function toOrderRead(order: any, items: any[]) {
   return {
     id: order.id,
     customer_email: order.customer_email,
     customer_name: order.customer_name,
-    shipping_address: order.shipping_address,
-    city: order.city,
-    postal_code: order.postal_code,
-    province: order.province,
     subtotal_amount: Number(order.subtotal_amount),
     shipping_fee: Number(order.shipping_fee),
     total_amount: Number(order.total_amount),
