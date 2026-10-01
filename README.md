@@ -571,8 +571,9 @@ under either of those names is silently ignored.
 
 **`/api/health`** is a status page for whoever is setting this up: open it
 in a browser and it says in plain words whether the database is connected,
-how many products are on sale, whether Payfast is in sandbox or live, and
-whether order emails are on — plus the name of any variable that is
+how many products are on sale, which payment provider is taking money and
+whether it is a test account (for Stitch it requests a real client token,
+so a wrong secret shows up here first), and whether order emails are on — plus the name of any variable that is
 missing. It reports only whether a setting exists, never its value, so it
 is safe to leave reachable, and a test locks that down.
 
@@ -586,6 +587,43 @@ rather than recording one nobody can pay for. Put real credentials in and
 it opens again on its own; `PAYMENTS_ENABLED` forces it either way.
 **Not yet mirrored in the FastAPI backend** - the Docker deployment still
 shows the pay button regardless.
+
+### Stitch (Netlify deployment only)
+
+The Netlify functions can take payment through **Stitch** (stitch.money) as
+well as Payfast: card and Pay by Bank on Stitch's hosted page, created with
+`clientPaymentInitiationRequestCreate`. Whichever provider has real
+credentials is used, Stitch first; `PAYMENT_PROVIDER=stitch|payfast` pins
+one. Setup is in **NEXT-STEPS.md**. The pieces:
+
+| File | Does |
+| --- | --- |
+| `_shared/stitch.mts` | client token (cached), create request, read state, webhook signatures |
+| `_shared/reconcile.mts` | asks Stitch what really happened and settles the order |
+| `_shared/settle.mts` | marks paid exactly once (conditional UPDATE), stock, emails — both providers |
+| `_shared/origin.mts` | return/notify addresses from the customer's own (allowlisted) domain |
+| `payment-confirm.mts` | `POST /api/payments/confirm` — the return page's check |
+| `stitch-webhook.mts` | `POST /api/payments/stitch/webhook` |
+
+Nothing the browser or a webhook body says is trusted. The return URL's
+`status` is used only for wording; the confirm endpoint and the webhook
+both fetch the payment request's state from Stitch server to server, and
+check its amount and `externalReference` against the order before
+settling. With `STITCH_WEBHOOK_SECRET` set, webhook signatures (Svix:
+HMAC-SHA256 over `id.timestamp.body`, five-minute window) are verified
+before anything is looked up.
+
+Variables: `STITCH_CLIENT_ID`, `STITCH_CLIENT_SECRET`,
+`STITCH_WEBHOOK_SECRET`, and optionally `STITCH_BENEFICIARY_NAME`,
+`STITCH_BENEFICIARY_BANK_ID`, `STITCH_BENEFICIARY_ACCOUNT_NUMBER`,
+`STITCH_PAYER_REFERENCE`. `STITCH_TOKEN_URL` and `STITCH_API_URL` override
+Stitch's endpoints, so a difference between the docs this was written from
+and the live API is a setting rather than a code change.
+
+Tests run against `_shared/fake-stitch-server.mts`, a stand-in Stitch over
+real HTTP (`stitch.test.mts`, `stitch-flow.test.mts`).
+
+**Not in the FastAPI backend.** The Docker deployment is Payfast only.
 
 The two deployments are kept in sync by hand, so a change to one is a
 change to both. Guard rails for that:
