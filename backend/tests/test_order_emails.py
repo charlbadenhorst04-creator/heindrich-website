@@ -117,6 +117,7 @@ async def _paid_order(client, unique_session_key, seeded_products, monkeypatch):
 
     fields = {
         "m_payment_id": order_id,
+        "merchant_id": "10000100",
         "pf_payment_id": "PF-EMAIL-TEST",
         "payment_status": "COMPLETE",
         "amount_gross": "598.00",

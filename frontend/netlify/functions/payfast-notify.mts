@@ -1,7 +1,8 @@
 import type { Config } from "@netlify/functions";
 import { isUuid, readyDb } from "./_shared/db.mts";
 import { env } from "./_shared/env.mts";
-import { signatureMatches, verifyItnWithPayfast } from "./_shared/payfast.mts";
+import { payfastMode, signatureMatches, verifyItnWithPayfast } from "./_shared/payfast.mts";
+import { activeProvider, payfastConfigured } from "./_shared/payments.mts";
 import { settleFailed, settlePaid } from "./_shared/settle.mts";
 
 export default async (req: Request) => {
@@ -12,6 +13,28 @@ export default async (req: Request) => {
 
   if (!signatureMatches(data, env("PAYFAST_PASSPHRASE"))) {
     return new Response("invalid signature", { status: 400 });
+  }
+
+  // The ITN must be for this shop's own Payfast merchant. Payfast vouches
+  // for any genuine ITN - including one for somebody else's account. So
+  // without this, anyone can register a free sandbox merchant, "pay" it
+  // with sandbox money while naming one of this shop's orders and this
+  // notify address, and Payfast would truthfully confirm a payment that
+  // never reached this shop. The signature does not prevent that when
+  // neither account uses a passphrase.
+  // payfastConfigured() also refuses Payfast's published demo merchant,
+  // which anyone can pay with sandbox money and so cannot vouch for anything.
+  const ourMerchant = env("PAYFAST_MERCHANT_ID").trim();
+  if (!payfastConfigured() || (data.merchant_id ?? "").trim() !== ourMerchant) {
+    return new Response("not this merchant", { status: 400 });
+  }
+
+  // A sandbox Payfast that is not the provider in use has no business
+  // settling anything: real orders are going through Stitch, and sandbox
+  // money is free. A live Payfast keeps accepting ITNs after a switch, so a
+  // real payment still in flight at the time is not stranded.
+  if (payfastMode() !== "live" && activeProvider() !== "payfast") {
+    return new Response("payfast sandbox is not in use", { status: 400 });
   }
 
   if (!(await verifyItnWithPayfast(data))) {
@@ -34,9 +57,19 @@ export default async (req: Request) => {
   }
 
   const database = await readyDb();
-  const orders = await database.sql`SELECT status, total_amount FROM orders WHERE id = ${orderId}`;
+  const orders = await database.sql`
+    SELECT status, total_amount, payment_provider FROM orders WHERE id = ${orderId}
+  `;
   if (orders.length === 0) {
     return new Response("order not found", { status: 404 });
+  }
+
+  // Only orders taken through Payfast can be settled by Payfast. With
+  // Stitch taking real payments and Payfast left on sandbox credentials,
+  // a sandbox ITN would otherwise settle a real Stitch order for nothing -
+  // and overwrite the Stitch reference that order is reconciled by.
+  if (orders[0].payment_provider !== "payfast") {
+    return new Response("not a Payfast order", { status: 400 });
   }
 
   // Compare in cents so no float rounding lets a short payment through.

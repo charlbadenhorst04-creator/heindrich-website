@@ -10,6 +10,9 @@ os.environ.setdefault("ENABLE_ACCOUNTS", "true")
 # would, so the limiter is off here and tested directly in
 # test_security_defaults.py instead.
 os.environ.setdefault("RATE_LIMIT_PER_MINUTE", "0")
+# The notify route only accepts ITNs for this shop's own merchant, so the
+# suite needs one to be "this shop".
+os.environ.setdefault("PAYFAST_MERCHANT_ID", "10000100")
 
 import pytest
 import pytest_asyncio

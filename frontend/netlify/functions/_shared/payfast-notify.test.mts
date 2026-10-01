@@ -242,3 +242,60 @@ test("the validation address cannot be redirected on a live store", async () => 
     envMap.PAYFAST_MODE = "sandbox";
   }
 });
+
+test("an ITN for somebody else's Payfast merchant changes nothing", async () => {
+  // The attack: register your own free Payfast sandbox merchant, "pay" it
+  // with sandbox money while naming this shop's order and notify address.
+  // Payfast genuinely sends that ITN and genuinely vouches for it - just
+  // for the wrong merchant. Without a merchant check it settles the order.
+  payfastAnswer = "VALID";
+  const { orderId, amount, product } = await placeOrder();
+  const before = await stockOf(product.id);
+
+  const res = await send(itn(orderId, amount, "COMPLETE", { merchant_id: "10999999" }));
+  assert.equal(res.status, 400);
+  assert.equal((await row(orderId)).status, "pending", "another merchant's payment settled this order");
+  assert.equal(await stockOf(product.id), before);
+});
+
+test("a Payfast ITN cannot settle an order taken through Stitch", async () => {
+  // With Stitch live and Payfast left on sandbox, a sandbox ITN would
+  // otherwise settle a real Stitch order for no money at all.
+  payfastAnswer = "VALID";
+  const { orderId, amount, product } = await placeOrder();
+  await pool.query(
+    "UPDATE orders SET payment_provider = 'stitch', provider_reference = 'cGF5cmVxL3JlYWw=' WHERE id = $1",
+    [orderId],
+  );
+  const before = await stockOf(product.id);
+
+  const res = await send(itn(orderId, amount));
+  assert.equal(res.status, 400);
+  const order = await row(orderId);
+  assert.equal(order.status, "pending", "a Payfast ITN settled a Stitch order");
+  assert.equal(order.provider_reference, "cGF5cmVxL3JlYWw=", "a Payfast ITN overwrote Stitch's reference");
+  assert.equal(await stockOf(product.id), before);
+});
+
+test("once Stitch is taking payments, a sandbox Payfast settles nothing at all", async () => {
+  // Even for an order that was taken through Payfast while it was being
+  // tested: sandbox money is free, so a sandbox ITN that arrives while the
+  // shop is live on Stitch can only be somebody gaming it.
+  payfastAnswer = "VALID";
+  const { orderId, amount, product } = await placeOrder();
+  const before = await stockOf(product.id);
+
+  envMap.STITCH_CLIENT_ID = "live-meravo";
+  envMap.STITCH_CLIENT_SECRET = "secret";
+  delete envMap.PAYMENTS_ENABLED;
+  try {
+    const res = await send(itn(orderId, amount));
+    assert.equal(res.status, 400);
+    assert.equal((await row(orderId)).status, "pending");
+    assert.equal(await stockOf(product.id), before);
+  } finally {
+    delete envMap.STITCH_CLIENT_ID;
+    delete envMap.STITCH_CLIENT_SECRET;
+    envMap.PAYMENTS_ENABLED = "true";
+  }
+});

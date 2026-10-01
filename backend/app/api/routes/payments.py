@@ -36,6 +36,16 @@ async def payfast_notify(
     if not signature_matches(data, settings.PAYFAST_PASSPHRASE):
         return Response(status_code=400, content="invalid signature")
 
+    # The ITN must be for this shop's own merchant. Payfast vouches for any
+    # genuine ITN, including one for somebody else's account: without this,
+    # anyone could pay their own Payfast merchant while naming one of this
+    # shop's orders and this notify URL, and Payfast would truthfully
+    # confirm a payment that never reached this shop. The signature does not
+    # stop that when neither account uses a passphrase.
+    our_merchant = settings.PAYFAST_MERCHANT_ID.strip()
+    if not our_merchant or data.get("merchant_id", "").strip() != our_merchant:
+        return Response(status_code=400, content="not this merchant")
+
     if not await verify_itn_with_payfast(data):
         return Response(status_code=400, content="not confirmed by payfast")
 

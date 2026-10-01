@@ -339,6 +339,7 @@ async def test_paid_order_triggers_a_whatsapp_message(
 
     fields = {
         "m_payment_id": checkout.json()["order_id"],
+        "merchant_id": "10000100",
         "pf_payment_id": "PF-WA-TEST",
         "payment_status": "COMPLETE",
         "amount_gross": "598.00",

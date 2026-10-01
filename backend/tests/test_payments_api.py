@@ -51,6 +51,7 @@ async def test_notify_marks_order_paid_on_valid_complete_payment(
 
     fields = {
         "m_payment_id": order["order_id"],
+        "merchant_id": "10000100",
         "pf_payment_id": "PF12345",
         "payment_status": "COMPLETE",
         "amount_gross": "598.00",  # 499 subtotal + 99 shipping
@@ -78,6 +79,7 @@ async def test_notify_rejects_amount_mismatch(
 
     fields = {
         "m_payment_id": order["order_id"],
+        "merchant_id": "10000100",
         "payment_status": "COMPLETE",
         "amount_gross": "1.00",  # wrong amount
     }
@@ -101,6 +103,7 @@ async def test_notify_unknown_order_404s(client, monkeypatch):
 
     fields = {
         "m_payment_id": "00000000-0000-0000-0000-000000000000",
+        "merchant_id": "10000100",
         "payment_status": "COMPLETE",
         "amount_gross": "100.00",
     }
@@ -123,6 +126,7 @@ async def test_notify_rejects_malformed_order_id(client, monkeypatch):
 
     fields = {
         "m_payment_id": "not-a-uuid",
+        "merchant_id": "10000100",
         "payment_status": "COMPLETE",
         "amount_gross": "100.00",
     }
@@ -147,6 +151,7 @@ async def test_notify_rejects_malformed_amount(
 
     fields = {
         "m_payment_id": order["order_id"],
+        "merchant_id": "10000100",
         "payment_status": "COMPLETE",
         "amount_gross": "R five hundred",
     }
@@ -174,6 +179,7 @@ async def test_notify_accepts_itn_signature_including_empty_fields(
 
     fields = {
         "m_payment_id": order["order_id"],
+        "merchant_id": "10000100",
         "pf_payment_id": "PF-EMPTY-FIELDS",
         "payment_status": "COMPLETE",
         "amount_gross": "598.00",
@@ -202,6 +208,7 @@ async def test_paid_order_is_not_walked_back_by_a_later_failed_notification(
 
     paid = {
         "m_payment_id": order["order_id"],
+        "merchant_id": "10000100",
         "pf_payment_id": "PF12345",
         "payment_status": "COMPLETE",
         "amount_gross": "598.00",
@@ -211,6 +218,7 @@ async def test_paid_order_is_not_walked_back_by_a_later_failed_notification(
 
     failed = {
         "m_payment_id": order["order_id"],
+        "merchant_id": "10000100",
         "pf_payment_id": "PF12345",
         "payment_status": "FAILED",
         "amount_gross": "598.00",
@@ -239,6 +247,7 @@ async def test_paid_order_reduces_stock_exactly_once(
 
     fields = {
         "m_payment_id": order["order_id"],
+        "merchant_id": "10000100",
         "pf_payment_id": "PF12345",
         "payment_status": "COMPLETE",
         "amount_gross": "598.00",
@@ -251,3 +260,36 @@ async def test_paid_order_reduces_stock_exactly_once(
 
     product_resp = await client.get(f"/api/products/{product_a.slug}")
     assert product_resp.json()["stock"] == starting_stock - 1
+
+
+async def test_notify_rejects_an_itn_for_another_merchant(
+    client, unique_session_key, seeded_products, monkeypatch
+):
+    """The attack: pay your own Payfast merchant while naming this shop's
+    order and notify URL. Payfast genuinely sends and vouches for that ITN -
+    just for the wrong merchant - so validation alone cannot catch it."""
+    order = await _create_order(client, unique_session_key, seeded_products)
+
+    async def fake_verify_itn(_data):
+        return True  # Payfast really would vouch for it.
+
+    from app.api.routes import payments as payments_route
+
+    monkeypatch.setattr(payfast_service, "verify_itn_with_payfast", fake_verify_itn)
+    monkeypatch.setattr(payments_route, "verify_itn_with_payfast", fake_verify_itn)
+
+    fields = {
+        "m_payment_id": order["order_id"],
+        "merchant_id": "10999999",
+        "pf_payment_id": "PF-ATTACKER",
+        "payment_status": "COMPLETE",
+        "amount_gross": "598.00",
+    }
+    fields["signature"] = payfast_service.build_signature(fields)
+
+    resp = await client.post("/api/payments/payfast/notify", data=fields)
+    assert resp.status_code == 400
+    assert "not this merchant" in resp.text
+
+    order_resp = await client.get(f"/api/orders/{order['order_id']}")
+    assert order_resp.json()["status"] == "pending"
