@@ -14,8 +14,11 @@ import Contact from "./pages/Contact";
 import Home from "./pages/Home";
 import NotFound from "./pages/NotFound";
 import OrderSuccess from "./pages/OrderSuccess";
+import Privacy from "./pages/Privacy";
 import ProductDetail from "./pages/ProductDetail";
+import Returns from "./pages/Returns";
 import Shop from "./pages/Shop";
+import Terms from "./pages/Terms";
 
 export default function App() {
   const location = useLocation();
@@ -46,6 +49,9 @@ export default function App() {
                 <Route path="/order-success" element={<OrderSuccess />} />
                 <Route path="/about" element={<About />} />
                 <Route path="/contact" element={<Contact />} />
+                <Route path="/privacy" element={<Privacy />} />
+                <Route path="/returns" element={<Returns />} />
+                <Route path="/terms" element={<Terms />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </motion.div>
