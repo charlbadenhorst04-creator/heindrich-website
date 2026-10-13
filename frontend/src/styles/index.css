@@ -31,3 +31,132 @@ textarea:focus-visible {
 .input {
   @apply w-full rounded-lg border border-maroon-200 bg-white px-4 py-2.5 text-sm text-maroon-900 outline-none ring-maroon-300 focus:ring-2;
 }
+
+/* -------------------------------------------------------- walking woman
+   The woman strolling across the background (components/WalkingWoman.tsx).
+   The same drawing and stride as the Shopify theme in meravo-theme/. */
+
+/* She crosses the bottom of the screen from left to right, then starts
+   again. Crossing time follows the screen width, so her pace looks the
+   same on a phone as on a laptop. */
+.walker {
+  position: absolute;
+  bottom: 2vh;
+  left: 0;
+  height: 9rem;
+  opacity: var(--walker-opacity, 0.45);
+  animation: walker-cross 24s linear infinite;
+}
+@media (min-width: 768px) {
+  .walker {
+    bottom: 3vh;
+    height: 13rem;
+    animation-duration: 46s;
+  }
+}
+@keyframes walker-cross {
+  from {
+    translate: -8rem 0;
+  }
+  to {
+    translate: calc(100vw + 2rem) 0;
+  }
+}
+
+/* One stride every 1.2s. Parts turn about her hip, shoulder and hand,
+   given in the drawing's own units. */
+.walker-leg,
+.walker-arm,
+.walker-bag {
+  transform-box: view-box;
+  animation-duration: 1.2s;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+}
+.walker-leg {
+  transform-origin: 62.5px 150px;
+  animation-name: walker-leg;
+}
+.walker-leg-back {
+  animation-delay: -0.6s;
+}
+.walker-arm {
+  transform-origin: 62.5px 80px;
+  animation-name: walker-arm;
+}
+.walker-arm-back {
+  animation-delay: -0.6s;
+}
+.walker-bag {
+  transform-origin: 62.7px 137px;
+  animation-name: walker-bag;
+  animation-delay: -0.15s;
+}
+.walker-bob {
+  height: 100%;
+  animation: walker-bob 0.6s ease-in-out infinite;
+}
+.walker-shadow {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: walker-shadow 0.6s ease-in-out infinite;
+}
+@keyframes walker-leg {
+  0%,
+  100% {
+    rotate: -22deg;
+  }
+  50% {
+    rotate: 22deg;
+  }
+}
+@keyframes walker-arm {
+  0%,
+  100% {
+    rotate: 16deg;
+  }
+  50% {
+    rotate: -16deg;
+  }
+}
+@keyframes walker-bag {
+  0%,
+  100% {
+    rotate: -12deg;
+  }
+  50% {
+    rotate: 12deg;
+  }
+}
+/* Lowest with her legs apart, highest as they pass. */
+@keyframes walker-bob {
+  0%,
+  100% {
+    translate: 0 0;
+  }
+  50% {
+    translate: 0 -3px;
+  }
+}
+@keyframes walker-shadow {
+  50% {
+    scale: 0.9 1;
+  }
+}
+
+/* Anyone who has asked their device for less motion sees her standing
+   still at the right, rather than walking. */
+@media (prefers-reduced-motion: reduce) {
+  .walker,
+  .walker-leg,
+  .walker-arm,
+  .walker-bag,
+  .walker-bob,
+  .walker-shadow {
+    animation: none !important;
+  }
+  .walker {
+    left: auto;
+    right: 6vw;
+  }
+}

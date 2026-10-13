@@ -1,5 +1,7 @@
 import { motion, useReducedMotion } from "framer-motion";
 
+import WalkingWoman from "./WalkingWoman";
+
 /**
  * The Meravo brand artwork, held behind the whole site.
  *
@@ -68,6 +70,9 @@ export default function BrandBackdrop() {
       {/* Softens the middle of the screen, where the products and text
           sit, while letting the artwork stay legible towards the edges. */}
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_120%_90%_at_50%_45%,rgba(253,246,243,0.34)_0%,rgba(253,246,243,0.42)_45%,rgba(253,246,243,0.6)_80%,rgba(253,246,243,0.76)_100%)]" />
+
+      {/* Strolls along the bottom of the screen, behind everything. */}
+      <WalkingWoman />
     </div>
   );
 }
