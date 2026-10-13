@@ -1,0 +1,134 @@
+{%- liquid
+  assign menu = section.settings.menu
+  assign about_page = pages['about']
+  assign contact_page = pages['contact']
+-%}
+
+<header class="border-b border-maroon-100 bg-blush-50/90 backdrop-blur">
+  <nav
+    class="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6 lg:px-8"
+    aria-label="{{ 'sections.header.navigation' | t }}"
+  >
+    <a href="{{ routes.root_url }}" class="flex items-center gap-2" aria-label="{{ 'sections.header.home' | t: shop: shop.name }}">
+      {%- render 'logo-mark', class: 'h-7 w-7 shrink-0 text-maroon-700' -%}
+      {%- comment -%}
+        The brand's own lettering, lifted out of the banner artwork. Sized in
+        rem, so it keeps pace with the menu beside it on a small screen.
+      {%- endcomment -%}
+      {%- if settings.logo != blank -%}
+        {{
+          settings.logo
+          | image_url: height: 112
+          | image_tag: class: 'h-6 w-auto sm:h-7', alt: shop.name, loading: 'eager'
+        }}
+      {%- else -%}
+        <img
+          src="{{ 'meravo-wordmark.png' | asset_url }}"
+          alt="{{ shop.name | escape }}"
+          class="h-6 w-auto sm:h-7"
+          width="559"
+          height="232"
+        >
+      {%- endif -%}
+    </a>
+
+    <div class="hidden items-center gap-8 md:flex">
+      {%- if menu.links.size > 0 -%}
+        {%- for link in menu.links -%}
+          <a
+            href="{{ link.url }}"
+            class="relative py-1 text-sm font-medium tracking-wide text-maroon-900/70 transition-colors hover:text-maroon-600 aria-[current=page]:text-maroon-700"
+            {% if link.current %}
+              aria-current="page"
+            {% endif %}
+          >
+            {{- link.title -}}
+            {%- if link.current -%}
+              <span class="absolute -bottom-0.5 left-0 right-0 h-0.5 rounded-full bg-maroon-600"></span>
+            {%- endif -%}
+          </a>
+        {%- endfor -%}
+      {%- else -%}
+        {%- render 'header-fallback-links', about_page: about_page, contact_page: contact_page, style: 'desktop' -%}
+      {%- endif -%}
+    </div>
+
+    <div class="flex items-center gap-4">
+      {%- comment -%}
+        The negative margin cancels the padding, so the icon sits where it
+        should while the tappable area grows to a comfortable size.
+      {%- endcomment -%}
+      <a
+        href="{{ routes.cart_url }}"
+        class="-m-2 flex items-center p-2 text-maroon-800"
+        data-cart-link
+        aria-label="{% if cart.item_count > 0 %}{{ 'general.cart_count' | t: count: cart.item_count }}{% else %}{{ 'general.cart' | t }}{% endif %}"
+      >
+        <span class="relative flex">
+          {%- render 'icon', name: 'cart', class: 'h-6 w-6', stroke_width: 1.7 -%}
+          <span
+            data-cart-count
+            class="absolute -right-2 -top-2 flex h-5 w-5 items-center justify-center rounded-full bg-maroon-600 text-[10px] font-bold text-white"
+            {% if cart.item_count == 0 %}
+              hidden
+            {% endif %}
+          >
+            {{- cart.item_count -}}
+          </span>
+        </span>
+      </a>
+
+      <button
+        type="button"
+        class="-m-2 p-2 text-maroon-800 md:hidden"
+        data-menu-toggle
+        aria-label="{{ 'sections.header.menu' | t }}"
+        aria-expanded="false"
+        aria-controls="MobileMenu-{{ section.id }}"
+      >
+        {%- render 'icon', name: 'menu', class: 'h-6 w-6', stroke_width: 1.7 -%}
+      </button>
+    </div>
+  </nav>
+
+  <div id="MobileMenu-{{ section.id }}" class="collapse-panel bg-blush-50 md:hidden" inert>
+    <div>
+      <div class="flex flex-col gap-3 border-t border-maroon-100 px-4 py-4">
+        {%- if menu.links.size > 0 -%}
+          {%- for link in menu.links -%}
+            <a
+              href="{{ link.url }}"
+              class="text-sm font-medium text-maroon-900/80"
+              {% if link.current %}
+                aria-current="page"
+              {% endif %}
+            >
+              {{- link.title -}}
+            </a>
+          {%- endfor -%}
+        {%- else -%}
+          {%- render 'header-fallback-links', about_page: about_page, contact_page: contact_page, style: 'mobile' -%}
+        {%- endif -%}
+      </div>
+    </div>
+  </div>
+</header>
+
+{% schema %}
+{
+  "name": "Header",
+  "class": "section-header",
+  "enabled_on": {
+    "groups": ["header"]
+  },
+  "settings": [
+    {
+      "type": "link_list",
+      "id": "menu",
+      "label": "Menu",
+      "default": "main-menu",
+      "info": "Until this menu has links, the header shows Home, Shop, and About and Contact if those pages exist."
+    }
+  ]
+}
+{% endschema %}

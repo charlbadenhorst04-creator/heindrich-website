@@ -1,0 +1,125 @@
+{%- comment -%}
+  Brand, contact details, shipping note and the store's policies.
+
+  The policy links come from shop.policies, so they point at whatever is
+  written in Settings > Policies in the Shopify admin.
+{%- endcomment -%}
+<footer class="mt-24 border-t border-maroon-100 bg-white/60">
+  <div class="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
+    <div class="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-4">
+      <div>
+        <p class="font-display text-xl text-maroon-700">{{ section.settings.brand_name | default: shop.name }}</p>
+        {%- if section.settings.tagline != blank -%}
+          <p class="mt-2 text-sm text-maroon-900/60">{{ section.settings.tagline }}</p>
+        {%- endif -%}
+      </div>
+
+      <div>
+        <p class="text-sm font-semibold text-maroon-800">{{ section.settings.contact_heading }}</p>
+        {%- if settings.contact_phone != blank -%}
+          <p class="mt-2 text-sm text-maroon-900/60">{{ settings.contact_phone }}</p>
+        {%- endif -%}
+        {%- if settings.contact_email != blank -%}
+          <p class="text-sm text-maroon-900/60">{{ settings.contact_email }}</p>
+        {%- endif -%}
+      </div>
+
+      <div>
+        <p class="text-sm font-semibold text-maroon-800">{{ section.settings.shipping_heading }}</p>
+        <p class="mt-2 text-sm text-maroon-900/60">{{ section.settings.shipping_text }}</p>
+      </div>
+
+      {%- liquid
+        assign policy_count = 0
+        for policy in shop.policies
+          if policy.url contains 'privacy-policy' or policy.url contains 'refund-policy' or policy.url contains 'terms-of-service'
+            assign policy_count = policy_count | plus: 1
+          endif
+        endfor
+      -%}
+      {%- if policy_count > 0 -%}
+        <nav aria-label="{{ section.settings.policies_heading | escape }}">
+          <p class="text-sm font-semibold text-maroon-800">{{ section.settings.policies_heading }}</p>
+          <ul class="mt-2 space-y-1">
+            {%- for policy in shop.policies -%}
+              {%- liquid
+                assign label = blank
+                if policy.url contains 'privacy-policy'
+                  assign label = 'sections.footer.privacy_policy' | t
+                elsif policy.url contains 'refund-policy'
+                  assign label = 'sections.footer.refund_policy' | t
+                elsif policy.url contains 'terms-of-service'
+                  assign label = 'sections.footer.terms_of_service' | t
+                endif
+              -%}
+              {%- if label != blank -%}
+                <li>
+                  <a
+                    href="{{ policy.url }}"
+                    class="text-sm text-maroon-900/60 transition-colors hover:text-maroon-700"
+                  >
+                    {{- label -}}
+                  </a>
+                </li>
+              {%- endif -%}
+            {%- endfor -%}
+          </ul>
+        </nav>
+      {%- endif -%}
+    </div>
+    <p class="mt-8 text-xs text-maroon-900/40">
+      &copy; {{ 'now' | date: '%Y' }}
+      {{ shop.name }}. {{ 'sections.footer.rights' | t }}
+    </p>
+  </div>
+</footer>
+
+{% schema %}
+{
+  "name": "Footer",
+  "enabled_on": {
+    "groups": ["footer"]
+  },
+  "settings": [
+    {
+      "type": "text",
+      "id": "brand_name",
+      "label": "Brand name",
+      "info": "Leave empty to use the store name.",
+      "default": "MERAVO"
+    },
+    {
+      "type": "text",
+      "id": "tagline",
+      "label": "Tagline",
+      "default": "Your style. Your story."
+    },
+    {
+      "type": "text",
+      "id": "contact_heading",
+      "label": "Contact heading",
+      "default": "Contact",
+      "info": "The phone and email come from Theme settings > Contact details."
+    },
+    {
+      "type": "text",
+      "id": "shipping_heading",
+      "label": "Shipping heading",
+      "default": "Shipping"
+    },
+    {
+      "type": "textarea",
+      "id": "shipping_text",
+      "label": "Shipping text",
+      "default": "Proudly South African. Delivered nationwide via Aramex, 2-4 business days."
+    },
+    {
+      "type": "text",
+      "id": "policies_heading",
+      "label": "Policies heading",
+      "default": "Policies",
+      "info": "Links appear for the privacy, refund and terms of service policies written in Settings > Policies."
+    }
+  ]
+}
+{% endschema %}

@@ -1,0 +1,91 @@
+{%- comment -%} Search results: products as cards, pages and articles as links. {%- endcomment -%}
+{%- paginate search.results by section.settings.results_per_page -%}
+  <div class="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
+    <h1 class="font-display text-3xl text-maroon-800">{{ 'general.search.title' | t }}</h1>
+
+    <form action="{{ routes.search_url }}" method="get" role="search" class="mt-6 flex max-w-xl gap-3">
+      <label class="sr-only" for="SearchPage-{{ section.id }}">{{ 'general.search.label' | t }}</label>
+      <input
+        id="SearchPage-{{ section.id }}"
+        type="search"
+        name="q"
+        value="{{ search.terms | escape }}"
+        placeholder="{{ 'general.search.placeholder' | t }}"
+        class="w-full rounded-full border border-maroon-200 bg-white px-5 py-2 text-sm outline-none ring-maroon-300 focus:ring-2"
+      >
+      <input type="hidden" name="options[prefix]" value="last">
+      <button type="submit" class="rounded-full bg-maroon-700 px-6 py-2 text-sm font-semibold text-white hover:bg-maroon-800">
+        {{- 'general.search.submit' | t -}}
+      </button>
+    </form>
+
+    {%- if search.performed -%}
+      <p class="mt-6 text-maroon-900/60">
+        {{- 'general.search.results_count' | t: count: search.results_count, terms: search.terms -}}
+      </p>
+
+      {%- if search.results_count > 0 -%}
+        <div class="mt-10 grid grid-cols-2 gap-4 sm:grid-cols-3 sm:gap-6 lg:grid-cols-4" data-product-grid>
+          {%- for item in search.results -%}
+            {%- case item.object_type -%}
+              {%- when 'product' -%}
+                {% render 'product-card', product: item, index: forloop.index0 %}
+              {%- else -%}
+                <a
+                  href="{{ item.url }}"
+                  class="card-lift block rounded-2xl bg-white p-6 shadow-sm ring-1 ring-maroon-100 hover:shadow-xl"
+                  data-reveal
+                >
+                  <p class="text-xs uppercase tracking-wide text-gold-600">
+                    {%- if item.object_type == 'article' -%}
+                      {{ 'general.search.article' | t }}
+                    {%- else -%}
+                      {{ 'general.search.page' | t }}
+                    {%- endif -%}
+                  </p>
+                  <h2 class="mt-1 font-medium text-maroon-900">{{ item.title }}</h2>
+                  <p class="mt-2 line-clamp-3 text-sm text-maroon-900/60">{{ item.content | strip_html | truncatewords: 24 }}</p>
+                </a>
+            {%- endcase -%}
+          {%- endfor -%}
+        </div>
+
+        {%- if paginate.next -%}
+          {%- liquid
+            assign shown = paginate.current_offset | plus: paginate.page_size
+            assign remaining = paginate.items | minus: shown
+          -%}
+          <div class="mt-10 text-center" data-load-more-wrap>
+            <a
+              href="{{ paginate.next.url }}"
+              class="inline-block rounded-full bg-maroon-700 px-8 py-3 text-sm font-semibold text-white transition-colors hover:bg-maroon-800 aria-busy:opacity-60"
+              data-load-more
+            >
+              {{- 'collections.general.load_more' | t: count: remaining -}}
+            </a>
+          </div>
+        {%- endif -%}
+      {%- else -%}
+        <p class="fade-in mt-16 text-center text-maroon-900/50">{{ 'general.search.no_results' | t }}</p>
+      {%- endif -%}
+    {%- endif -%}
+  </div>
+{%- endpaginate -%}
+
+{% schema %}
+{
+  "name": "Search results",
+  "tag": "section",
+  "settings": [
+    {
+      "type": "range",
+      "id": "results_per_page",
+      "label": "Results per page",
+      "min": 8,
+      "max": 48,
+      "step": 4,
+      "default": 16
+    }
+  ]
+}
+{% endschema %}

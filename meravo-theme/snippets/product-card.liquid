@@ -1,0 +1,91 @@
+{%- comment -%}
+  A product in a grid: photo, type, title, price, and a plus button that
+  adds it straight to the cart.
+
+  The plus button only adds directly when there is exactly one variant to
+  add. A product with sizes or colours goes to its page instead, so nobody
+  gets a variant they did not choose.
+
+  Accepts:
+  - product: the product
+  - index: position in the grid, for the staggered entrance
+  - show_type: show the product type above the title (default true)
+  - show_add: show the plus button (default true)
+{%- endcomment -%}
+{%- liquid
+  assign position = index | default: 0
+  assign delay = position | times: 0.05
+  if delay > 0.4
+    assign delay = 0.4
+  endif
+  assign variant = product.selected_or_first_available_variant
+-%}
+<div
+  class="card-lift group relative overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-maroon-100 hover:shadow-xl"
+  data-reveal
+  style="--reveal-delay: {{ delay }}s;"
+>
+  <a href="{{ product.url }}" class="block">
+    <div class="aspect-square overflow-hidden bg-blush-100">
+      {%- if product.featured_media -%}
+        {{
+          product.featured_media.preview_image
+          | image_url: width: 800
+          | image_tag:
+            loading: 'lazy',
+            widths: '300, 400, 600, 800',
+            sizes: '(min-width: 1024px) 22vw, (min-width: 640px) 30vw, 46vw',
+            class: 'spin-on-hover h-full w-full object-cover',
+            alt: product.featured_media.alt | default: product.title
+        }}
+      {%- else -%}
+        {% render 'image-placeholder' %}
+      {%- endif -%}
+    </div>
+    <div class="p-4">
+      {%- if show_type != false and product.type != blank -%}
+        <p class="text-xs uppercase tracking-wide text-gold-600">{{ product.type }}</p>
+      {%- endif -%}
+      <h3 class="mt-1 line-clamp-2 font-medium text-maroon-900">{{ product.title }}</h3>
+      <p class="mt-2 font-display text-lg text-maroon-700">
+        {%- if product.price_varies -%}
+          {%- assign from_price = product.price_min | money -%}
+          {{ 'products.product.price_from' | t: price: from_price }}
+        {%- else -%}
+          {{ product.price | money }}
+        {%- endif -%}
+      </p>
+    </div>
+  </a>
+
+  {%- if show_add != false -%}
+    {%- if product.has_only_default_variant -%}
+      <button
+        type="button"
+        class="tap-shrink absolute bottom-4 right-4 flex h-10 w-10 items-center justify-center rounded-full bg-maroon-700 text-white shadow-lg hover:bg-maroon-800 disabled:cursor-not-allowed disabled:opacity-50"
+        aria-label="{{ 'products.product.add_named_to_cart' | t: title: product.title | escape }}"
+        data-quick-add
+        data-variant-id="{{ variant.id }}"
+        data-product-title="{{ product.title | escape }}"
+        {% unless product.available %}disabled{% endunless %}
+      >
+        <span data-icon>{% render 'icon', name: 'plus', class: 'h-5 w-5' %}</span>
+        <span data-spinner hidden class="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
+      </button>
+    {%- else -%}
+      <a
+        href="{{ product.url }}"
+        class="tap-shrink absolute bottom-4 right-4 flex h-10 w-10 items-center justify-center rounded-full bg-maroon-700 text-white shadow-lg hover:bg-maroon-800"
+        aria-label="{{ 'products.product.choose_options' | t: title: product.title | escape }}"
+      >
+        {%- render 'icon', name: 'plus', class: 'h-5 w-5' -%}
+      </a>
+    {%- endif -%}
+  {%- endif -%}
+
+  {%- unless product.available -%}
+    <span class="absolute left-4 top-4 rounded-full bg-maroon-900/80 px-3 py-1 text-xs font-medium text-white">
+      {{- 'products.product.out_of_stock_badge' | t -}}
+    </span>
+  {%- endunless -%}
+</div>

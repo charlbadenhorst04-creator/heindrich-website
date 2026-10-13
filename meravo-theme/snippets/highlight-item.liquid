@@ -1,0 +1,15 @@
+{%- comment -%}
+  One "Why you'll love it" line, sliding in from the left in turn.
+  Accepts: text, index, attributes (block.shopify_attributes, optional)
+{%- endcomment -%}
+<li
+  class="flex items-start gap-3"
+  data-reveal
+  style="--reveal-x: -12px; --reveal-y: 0px; --reveal-duration: 0.35s; --reveal-delay: {{ index | times: 0.15 }}s;"
+  {{ attributes }}
+>
+  <span class="mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-maroon-100 text-maroon-700">
+    {%- render 'icon', name: 'check', class: 'h-3 w-3', stroke_width: 3 -%}
+  </span>
+  <span class="text-sm text-maroon-900/80">{{ text }}</span>
+</li>

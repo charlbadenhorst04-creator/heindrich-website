@@ -1,0 +1,85 @@
+{%- comment -%}
+  The deep maroon band of promises under the products: "Nationwide
+  Delivery", "Secure Checkout", "Real Support". One block per promise.
+{%- endcomment -%}
+{%- liquid
+  assign count = section.blocks.size
+  case count
+    when 1
+      assign columns = 'sm:grid-cols-1'
+    when 2
+      assign columns = 'sm:grid-cols-2'
+    when 4
+      assign columns = 'sm:grid-cols-2 lg:grid-cols-4'
+    else
+      assign columns = 'sm:grid-cols-3'
+  endcase
+-%}
+<section class="bg-maroon-800 py-14">
+  <div class="mx-auto grid max-w-7xl grid-cols-1 gap-8 px-4 text-center text-blush-50 {{ columns }} sm:px-6 lg:px-8">
+    {%- for block in section.blocks -%}
+      <div {{ block.shopify_attributes }}>
+        <p class="font-display text-2xl">{{ block.settings.title }}</p>
+        {%- if block.settings.text != blank -%}
+          <p class="mt-2 text-sm text-blush-100/80">{{ block.settings.text }}</p>
+        {%- endif -%}
+      </div>
+    {%- endfor -%}
+  </div>
+</section>
+
+{% schema %}
+{
+  "name": "Promise banner",
+  "tag": "div",
+  "max_blocks": 4,
+  "blocks": [
+    {
+      "type": "promise",
+      "name": "Promise",
+      "settings": [
+        {
+          "type": "text",
+          "id": "title",
+          "label": "Heading",
+          "default": "Nationwide Delivery"
+        },
+        {
+          "type": "text",
+          "id": "text",
+          "label": "Text",
+          "default": "Fast, tracked shipping across South Africa."
+        }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "Promise banner",
+      "blocks": [
+        {
+          "type": "promise",
+          "settings": {
+            "title": "Nationwide Delivery",
+            "text": "Fast, tracked shipping across South Africa."
+          }
+        },
+        {
+          "type": "promise",
+          "settings": {
+            "title": "Secure Checkout",
+            "text": "Pay securely by card or straight from your bank."
+          }
+        },
+        {
+          "type": "promise",
+          "settings": {
+            "title": "Real Support",
+            "text": "Reach us on WhatsApp for any questions."
+          }
+        }
+      ]
+    }
+  ]
+}
+{% endschema %}

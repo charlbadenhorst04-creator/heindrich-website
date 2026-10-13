@@ -1,0 +1,39 @@
+{%- comment -%}
+  A page from Online Store > Pages, such as About. Plain, like the About
+  page; or in a white card, like the policy pages.
+{%- endcomment -%}
+<div class="mx-auto {% if section.settings.card %}max-w-3xl{% else %}max-w-4xl{% endif %} px-4 py-16 sm:px-6 lg:px-8">
+  <h1 class="fade-up font-display text-4xl text-maroon-800" style="--fade-y: 10px; --fade-duration: 0.5s;">
+    {{ page.title }}
+  </h1>
+  {%- if section.settings.card -%}
+    <div
+      class="fade-up rte mt-8 rounded-2xl bg-white p-6 leading-relaxed text-maroon-900/70 ring-1 ring-maroon-100 sm:p-8 sm:text-lg"
+      style="--fade-y: 10px; --fade-duration: 0.5s; --fade-delay: 0.1s;"
+    >
+      {{ page.content }}
+    </div>
+  {%- else -%}
+    <div
+      class="fade-up rte mt-6 text-lg leading-relaxed text-maroon-900/70"
+      style="--fade-y: 10px; --fade-duration: 0.5s; --fade-delay: 0.1s;"
+    >
+      {{ page.content }}
+    </div>
+  {%- endif -%}
+</div>
+
+{% schema %}
+{
+  "name": "Page",
+  "tag": "section",
+  "settings": [
+    {
+      "type": "checkbox",
+      "id": "card",
+      "label": "Show the text in a white card",
+      "default": false
+    }
+  ]
+}
+{% endschema %}

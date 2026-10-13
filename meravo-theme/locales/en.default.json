@@ -1,0 +1,143 @@
+{
+  "general": {
+    "skip_to_content": "Skip to content",
+    "page": "Page {{ page }}",
+    "cart": "Cart",
+    "cart_count": {
+      "one": "Cart, {{ count }} item",
+      "other": "Cart, {{ count }} items"
+    },
+    "cart_count_template": "Cart, [count] items",
+    "continue_shopping": "Continue Shopping",
+    "search": {
+      "title": "Search",
+      "label": "Search products",
+      "placeholder": "Search products...",
+      "submit": "Search",
+      "results_count": {
+        "zero": "No results for “{{ terms }}”.",
+        "one": "1 result for “{{ terms }}”.",
+        "other": "{{ count }} results for “{{ terms }}”."
+      },
+      "no_results": "No products found. Try a different search or category.",
+      "article": "Article",
+      "page": "Page"
+    },
+    "not_found": {
+      "text": "This page doesn't exist.",
+      "home": "Back to Home"
+    }
+  },
+  "sections": {
+    "header": {
+      "navigation": "Main",
+      "home": "{{ shop }} - home",
+      "menu": "Toggle menu",
+      "fallback_home": "Home",
+      "fallback_shop": "Shop",
+      "fallback_about": "About",
+      "fallback_contact": "Contact"
+    },
+    "footer": {
+      "privacy_policy": "Privacy Policy",
+      "refund_policy": "Returns Policy",
+      "terms_of_service": "Terms of Service",
+      "rights": "All rights reserved."
+    },
+    "featured_collection": {
+      "view_all": "View all"
+    },
+    "assistant": {
+      "label": "M, your shopping assistant - tap for a tip",
+      "minimize": "Minimize M",
+      "show": "Show M, your shopping assistant"
+    }
+  },
+  "products": {
+    "product": {
+      "breadcrumb": "Breadcrumb",
+      "breadcrumb_shop": "Shop",
+      "add_to_cart": "Add to Cart",
+      "add_named_to_cart": "Add {{ title }} to cart",
+      "choose_options": "Choose options for {{ title }}",
+      "adding": "Adding...",
+      "added": "Added to cart ✓",
+      "added_to_cart": "[title] added to cart",
+      "add_error": "Couldn't add that to your cart. Please try again.",
+      "sold_out": "Sold out",
+      "unavailable": "Unavailable",
+      "out_of_stock": "Currently out of stock",
+      "out_of_stock_badge": "Out of stock",
+      "in_stock": "In stock",
+      "in_stock_count": {
+        "one": "{{ count }} in stock",
+        "other": "{{ count }} in stock"
+      },
+      "in_stock_count_template": "[count] in stock",
+      "price_from": "From {{ price }}",
+      "quantity": "Quantity",
+      "quantity_decrease": "Decrease quantity",
+      "quantity_increase": "Increase quantity",
+      "tilt_hint": "Move to explore",
+      "spin_hint": "Drag to rotate",
+      "spin_label": "{{ title }} - drag to rotate 360 degrees",
+      "show_photo": "Show photo {{ number }}",
+      "tap_for_sound": "Tap for sound",
+      "mute": "Mute video",
+      "placeholder_title": "Your product here"
+    }
+  },
+  "collections": {
+    "general": {
+      "all": "All",
+      "categories": "Categories",
+      "empty": "No products found. Try a different search or category.",
+      "load_more": {
+        "one": "Load more ({{ count }} left)",
+        "other": "Load more ({{ count }} left)"
+      },
+      "loading": "Loading...",
+      "load_error": "We couldn't load more products just now. Please try again.",
+      "product_count": {
+        "one": "{{ count }} product",
+        "other": "{{ count }} products"
+      }
+    }
+  },
+  "cart": {
+    "general": {
+      "title": "Your Cart",
+      "empty": "Your cart is empty.",
+      "summary": "Order Summary",
+      "subtotal": "Subtotal",
+      "shipping": "Shipping ({{ courier }})",
+      "shipping_at_checkout": "Calculated at checkout",
+      "free_shipping_over": "Free shipping on orders over {{ amount }}",
+      "total": "Total",
+      "total_plus_shipping": "{{ total }} + shipping",
+      "checkout": "Proceed to Checkout",
+      "secure_note": "You'll pay on Shopify's secure checkout. Your card details never reach us.",
+      "increase": "Increase quantity of {{ title }}",
+      "decrease": "Decrease quantity of {{ title }}",
+      "remove": "Remove {{ title }}",
+      "error": "Something went wrong with your cart. Please try again.",
+      "update_error": "Couldn't update that item. Please try again."
+    }
+  },
+  "contact": {
+    "whatsapp": "WhatsApp",
+    "email": "Email",
+    "name": "Name",
+    "email_label": "Email",
+    "phone": "Phone (optional)",
+    "message": "Message",
+    "send": "Send message",
+    "success": "Thanks for getting in touch! We'll get back to you as soon as we can."
+  },
+  "password": {
+    "enter": "Have the password? Enter the store",
+    "label": "Password",
+    "submit": "Enter",
+    "wrong": "That password isn't right. Please try again."
+  }
+}

@@ -1,0 +1,122 @@
+{%- comment -%}
+  A picture with words over it, for a sale, a new range or a season. Not on
+  the homepage by default; add it from the theme editor.
+{%- endcomment -%}
+{%- liquid
+  case section.settings.height
+    when 'small'
+      assign height = 'min-h-[18rem]'
+    when 'large'
+      assign height = 'min-h-[32rem]'
+    else
+      assign height = 'min-h-[24rem]'
+  endcase
+-%}
+<section class="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+  <div class="relative flex {{ height }} items-center overflow-hidden rounded-3xl bg-maroon-800 shadow-sm ring-1 ring-maroon-100" data-reveal style="--reveal-y: 16px;">
+    {%- if section.settings.image != blank -%}
+      {{
+        section.settings.image
+        | image_url: width: 2400
+        | image_tag:
+          loading: 'lazy',
+          widths: '600, 900, 1200, 1600, 2000, 2400',
+          sizes: '(min-width: 1280px) 1216px, 100vw',
+          class: 'absolute inset-0 h-full w-full object-cover'
+      }}
+    {%- else -%}
+      {{ 'lifestyle-1' | placeholder_svg_tag: 'absolute inset-0 h-full w-full fill-maroon-700' }}
+    {%- endif -%}
+    <div class="absolute inset-0 bg-gradient-to-r from-maroon-900/70 via-maroon-900/40 to-transparent" style="opacity: {{ section.settings.overlay | divided_by: 100.0 }};"></div>
+
+    <div class="relative max-w-xl px-8 py-12 text-blush-50 sm:px-12">
+      {%- if section.settings.eyebrow != blank -%}
+        <p class="text-sm font-semibold uppercase tracking-widest text-gold-400">{{ section.settings.eyebrow }}</p>
+      {%- endif -%}
+      {%- if section.settings.heading != blank -%}
+        <h2 class="mt-2 font-display text-3xl sm:text-4xl">{{ section.settings.heading }}</h2>
+      {%- endif -%}
+      {%- if section.settings.text != blank -%}
+        <p class="mt-4 text-base text-blush-100/90">{{ section.settings.text }}</p>
+      {%- endif -%}
+      {%- if section.settings.button_label != blank -%}
+        <a
+          href="{{ section.settings.button_link | default: routes.all_products_collection_url }}"
+          class="mt-8 inline-flex items-center gap-2 rounded-full bg-blush-50 px-8 py-3 text-sm font-semibold text-maroon-800 shadow-lg transition-transform hover:-translate-y-0.5"
+        >
+          {{ section.settings.button_label }}
+          {%- render 'icon', name: 'arrow-right', class: 'h-4 w-4' -%}
+        </a>
+      {%- endif -%}
+    </div>
+  </div>
+</section>
+
+{% schema %}
+{
+  "name": "Image banner",
+  "tag": "div",
+  "settings": [
+    {
+      "type": "image_picker",
+      "id": "image",
+      "label": "Image"
+    },
+    {
+      "type": "range",
+      "id": "overlay",
+      "label": "Shade behind the words",
+      "min": 0,
+      "max": 100,
+      "step": 5,
+      "unit": "%",
+      "default": 100
+    },
+    {
+      "type": "select",
+      "id": "height",
+      "label": "Height",
+      "options": [
+        { "value": "small", "label": "Small" },
+        { "value": "medium", "label": "Medium" },
+        { "value": "large", "label": "Large" }
+      ],
+      "default": "medium"
+    },
+    {
+      "type": "text",
+      "id": "eyebrow",
+      "label": "Eyebrow",
+      "default": "New in"
+    },
+    {
+      "type": "text",
+      "id": "heading",
+      "label": "Heading",
+      "default": "Something for everyone"
+    },
+    {
+      "type": "textarea",
+      "id": "text",
+      "label": "Text",
+      "default": "Fresh picks for home, family and everyday life."
+    },
+    {
+      "type": "text",
+      "id": "button_label",
+      "label": "Button label",
+      "default": "Shop Now"
+    },
+    {
+      "type": "url",
+      "id": "button_link",
+      "label": "Button link"
+    }
+  ],
+  "presets": [
+    {
+      "name": "Image banner"
+    }
+  ]
+}
+{% endschema %}

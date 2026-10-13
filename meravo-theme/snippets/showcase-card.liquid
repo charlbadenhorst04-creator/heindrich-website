@@ -1,0 +1,49 @@
+{%- comment -%}
+  The "Popular Right Now" card: a scroll-snap tile on phones, a grid cell
+  from tablet up. Photo, title and price; the whole card links to the
+  product.
+
+  Accepts: product, index
+{%- endcomment -%}
+{%- liquid
+  assign position = index | default: 0
+  assign delay = position | times: 0.08
+  if delay > 0.48
+    assign delay = 0.48
+  endif
+-%}
+<article
+  class="card-lift card-lift-scale w-64 shrink-0 snap-center overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-maroon-100 hover:shadow-xl md:w-auto md:shrink md:snap-align-none"
+  data-reveal
+  style="--reveal-y: 28px; --reveal-duration: 0.45s; --reveal-delay: {{ delay }}s;"
+>
+  <a href="{{ product.url }}" class="block">
+    <div class="aspect-square overflow-hidden bg-blush-100">
+      {%- if product.featured_media -%}
+        {{
+          product.featured_media.preview_image
+          | image_url: width: 800
+          | image_tag:
+            loading: 'lazy',
+            widths: '300, 400, 600, 800',
+            sizes: '(min-width: 1024px) 22vw, (min-width: 768px) 30vw, 256px',
+            class: 'spin-on-hover h-full w-full object-cover',
+            alt: product.featured_media.alt | default: product.title
+        }}
+      {%- else -%}
+        {% render 'image-placeholder' %}
+      {%- endif -%}
+    </div>
+    <div class="p-4">
+      <h3 class="line-clamp-2 font-medium text-maroon-900">{{ product.title }}</h3>
+      <p class="mt-2 font-display text-lg text-maroon-700">
+        {%- if product.price_varies -%}
+          {%- assign from_price = product.price_min | money -%}
+          {{ 'products.product.price_from' | t: price: from_price }}
+        {%- else -%}
+          {{ product.price | money }}
+        {%- endif -%}
+      </p>
+    </div>
+  </a>
+</article>

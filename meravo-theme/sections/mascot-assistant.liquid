@@ -1,0 +1,120 @@
+{%- comment -%}
+  M, the small assistant in the bottom-right corner of every page. Bobs,
+  blinks, waves once on arrival, offers a tip when tapped or hovered, and
+  celebrates whenever something goes into the cart. Can be tucked away to a
+  small M button, and stays that way between visits.
+
+  Tips are this section's blocks. Behaviour is in theme.js (initAssistant).
+{%- endcomment -%}
+{%- if section.settings.enabled -%}
+  <div data-assistant>
+    <script type="application/json" data-tips>
+      [
+        {%- for block in section.blocks -%}
+          {{- block.settings.text | json -}}
+          {%- unless forloop.last -%},{%- endunless -%}
+        {%- endfor -%}
+      ]
+    </script>
+
+    <button
+      type="button"
+      class="assistant-launcher fixed bottom-4 right-4 z-50 flex h-11 w-11 items-center justify-center rounded-full bg-[#7C2A38] text-[#F8EFE8] shadow-lg sm:bottom-6 sm:right-6"
+      data-assistant-launcher
+      aria-label="{{ 'sections.assistant.show' | t }}"
+      hidden
+    >
+      <span class="font-display text-lg">M</span>
+    </button>
+
+    <div class="fixed bottom-4 right-4 z-50 flex flex-col items-end gap-2 sm:bottom-6 sm:right-6" data-assistant-expanded>
+      <div
+        class="bubble relative max-w-[220px] rounded-2xl bg-white px-4 py-2.5 text-sm text-[#7C2A38] shadow-lg ring-1 ring-[#F1D9D2]"
+        data-assistant-bubble
+        role="status"
+      >
+        <span data-assistant-tip></span>
+        <div class="absolute -bottom-1.5 right-6 h-3 w-3 rotate-45 bg-white ring-1 ring-[#F1D9D2]"></div>
+      </div>
+
+      <div class="relative">
+        <button
+          type="button"
+          class="absolute -right-1 -top-1 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-white text-xs text-[#7C2A38] shadow ring-1 ring-[#F1D9D2] hover:bg-[#F8EFE8]"
+          data-assistant-minimize
+          aria-label="{{ 'sections.assistant.minimize' | t }}"
+        >
+          &times;
+        </button>
+
+        <button
+          type="button"
+          class="assistant-bob relative block h-16 w-16 cursor-pointer sm:h-[72px] sm:w-[72px]"
+          data-assistant-face
+          aria-label="{{ 'sections.assistant.label' | t }}"
+        >
+          <svg viewBox="0 0 100 100" class="h-full w-full drop-shadow-md" aria-hidden="true" focusable="false">
+            <circle cx="50" cy="56" r="34" fill="#F1D9D2"/>
+            <circle cx="24" cy="40" r="8" fill="#F1D9D2"/>
+            <circle cx="76" cy="40" r="8" fill="#F1D9D2"/>
+            <ellipse cx="50" cy="66" rx="16" ry="11" fill="#F8EFE8"/>
+            <path d="M50 40 l-9 -6 v12 z" fill="#7C2A38"/>
+            <path d="M50 40 l9 -6 v12 z" fill="#7C2A38"/>
+            <circle cx="50" cy="40" r="3.5" fill="#7C2A38"/>
+            <circle cx="34" cy="58" r="4.5" fill="#F8EFE8" opacity="0.9"/>
+            <circle cx="66" cy="58" r="4.5" fill="#F8EFE8" opacity="0.9"/>
+            <g class="svg-part mascot-blink-fast">
+              <circle cx="40" cy="52" r="3.4" fill="#7C2A38"/>
+              <circle cx="60" cy="52" r="3.4" fill="#7C2A38"/>
+            </g>
+            <path d="M40 62 Q50 70 60 62" stroke="#7C2A38" stroke-width="2.6" stroke-linecap="round" fill="none"/>
+            <g class="svg-part assistant-hand">
+              <circle cx="78" cy="62" r="7" fill="#F1D9D2"/>
+            </g>
+          </svg>
+
+          <span class="assistant-sparkle pointer-events-none absolute h-2 w-2 rounded-full bg-[#c9a15a]" style="left: 10%; top: 10%; --sparkle-delay: 0s;"></span>
+          <span class="assistant-sparkle pointer-events-none absolute h-2 w-2 rounded-full bg-[#c9a15a]" style="left: 85%; top: 5%; --sparkle-delay: 0.1s;"></span>
+          <span class="assistant-sparkle pointer-events-none absolute h-2 w-2 rounded-full bg-[#c9a15a]" style="left: 90%; top: 60%; --sparkle-delay: 0.2s;"></span>
+          <span class="assistant-sparkle pointer-events-none absolute h-2 w-2 rounded-full bg-[#c9a15a]" style="left: 0%; top: 60%; --sparkle-delay: 0.15s;"></span>
+        </button>
+      </div>
+    </div>
+  </div>
+{%- endif -%}
+
+{% schema %}
+{
+  "name": "M assistant",
+  "enabled_on": {
+    "groups": ["footer"]
+  },
+  "settings": [
+    {
+      "type": "checkbox",
+      "id": "enabled",
+      "label": "Show M in the corner of every page",
+      "default": true
+    }
+  ],
+  "blocks": [
+    {
+      "type": "tip",
+      "name": "Tip",
+      "settings": [
+        {
+          "type": "text",
+          "id": "text",
+          "label": "Tip",
+          "default": "Need help? I'm right here."
+        }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "M assistant"
+    }
+  ]
+}
+{% endschema %}

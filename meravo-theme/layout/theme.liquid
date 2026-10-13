@@ -1,0 +1,104 @@
+<!doctype html>
+<html class="no-js" lang="{{ request.locale.iso_code }}">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#611c2b">
+    <link rel="canonical" href="{{ canonical_url }}">
+
+    {%- if settings.favicon != blank -%}
+      <link rel="icon" type="image/png" href="{{ settings.favicon | image_url: width: 32, height: 32 }}">
+    {%- else -%}
+      <link rel="icon" type="image/svg+xml" href="{{ 'favicon.svg' | asset_url }}">
+    {%- endif -%}
+
+    {%- unless settings.type_heading_font.system? and settings.type_body_font.system? -%}
+      <link rel="preconnect" href="https://fonts.shopifycdn.com" crossorigin>
+    {%- endunless -%}
+
+    <title>
+      {{ page_title }}
+      {%- if current_tags %} &ndash; {{ current_tags | join: ', ' }}{% endif -%}
+      {%- if current_page != 1 %} &ndash; {{ 'general.page' | t: page: current_page }}{% endif -%}
+      {%- unless page_title contains shop.name %} &ndash; {{ shop.name }}{% endunless -%}
+    </title>
+
+    {%- if page_description -%}
+      <meta name="description" content="{{ page_description | escape }}">
+    {%- endif -%}
+
+    {% render 'meta-tags' %}
+
+    <script src="{{ 'theme.js' | asset_url }}" defer="defer"></script>
+
+    {{ content_for_header }}
+
+    {% render 'font-faces' %}
+    {{ 'theme.css' | asset_url | stylesheet_tag }}
+
+    <script>
+      document.documentElement.className = document.documentElement.className.replace('no-js', 'js');
+    </script>
+  </head>
+
+  <body class="bg-blush-50 font-sans text-maroon-900 antialiased">
+    <a class="skip-link" href="#MainContent">{{ 'general.skip_to_content' | t }}</a>
+
+    {% render 'brand-backdrop' %}
+
+    {%- comment -%}
+      Sits above the backdrop. Everything the shopper touches lives in here,
+      so nothing of theirs can end up behind the artwork.
+    {%- endcomment -%}
+    <div class="relative z-10 flex min-h-screen flex-col">
+      {% sections 'header-group' %}
+
+      <main id="MainContent" class="page-fade flex-1" role="main" tabindex="-1">
+        {{ content_for_layout }}
+      </main>
+
+      {% sections 'footer-group' %}
+    </div>
+
+    {%- comment -%} aria-live so "added to cart" and errors are announced. {%- endcomment -%}
+    <div
+      id="toast-region"
+      role="status"
+      aria-live="polite"
+      class="pointer-events-none fixed inset-x-0 bottom-4 z-[100] flex flex-col items-center gap-2 px-4 sm:bottom-6 sm:items-end sm:px-6"
+    ></div>
+
+    <script>
+      window.meravo = {
+        moneyFormat: {{ shop.money_format | json }},
+        revealEnabled: {{ settings.animations_reveal | json }},
+        routes: {
+          root: {{ routes.root_url | json }},
+          cart_url: {{ routes.cart_url | json }},
+          cart_add_url: {{ routes.cart_add_url | json }},
+          cart_change_url: {{ routes.cart_change_url | json }}
+        },
+        strings: {
+          cart: {{ 'general.cart' | t | json }},
+          cart_count: {{ 'general.cart_count_template' | t | json }},
+          cart_count_one: {{ 'general.cart_count' | t: count: 1 | json }},
+          added_to_cart: {{ 'products.product.added_to_cart' | t | json }},
+          add_to_cart: {{ 'products.product.add_to_cart' | t | json }},
+          adding: {{ 'products.product.adding' | t | json }},
+          added: {{ 'products.product.added' | t | json }},
+          sold_out: {{ 'products.product.sold_out' | t | json }},
+          unavailable: {{ 'products.product.unavailable' | t | json }},
+          out_of_stock: {{ 'products.product.out_of_stock' | t | json }},
+          in_stock: {{ 'products.product.in_stock' | t | json }},
+          in_stock_count: {{ 'products.product.in_stock_count_template' | t | json }},
+          add_error: {{ 'products.product.add_error' | t | json }},
+          cart_error: {{ 'cart.general.error' | t | json }},
+          update_error: {{ 'cart.general.update_error' | t | json }},
+          loading: {{ 'collections.general.loading' | t | json }},
+          load_error: {{ 'collections.general.load_error' | t | json }}
+        }
+      };
+    </script>
+  </body>
+</html>

@@ -1,0 +1,88 @@
+{%- comment -%}
+  "New & Popular": a collection as a product grid, each card with a plus
+  button that adds it to the cart. With no collection chosen, the newest
+  products in the store.
+{%- endcomment -%}
+{%- liquid
+  assign collection = section.settings.collection
+  if collection == blank
+    assign collection = collections.all
+  endif
+  assign view_all_url = collection.url | default: routes.all_products_collection_url
+-%}
+<section class="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
+  <div class="mb-10 flex items-end justify-between">
+    <div>
+      {%- if section.settings.eyebrow != blank -%}
+        <p class="text-sm font-semibold uppercase tracking-widest text-gold-600">{{ section.settings.eyebrow }}</p>
+      {%- endif -%}
+      {%- if section.settings.title != blank -%}
+        <h2 class="mt-1 font-display text-3xl text-maroon-800">{{ section.settings.title }}</h2>
+      {%- endif -%}
+    </div>
+    {%- if section.settings.show_view_all -%}
+      <a href="{{ view_all_url }}" class="text-sm font-medium text-maroon-700 hover:underline">
+        {{- 'sections.featured_collection.view_all' | t }} &rarr;
+      </a>
+    {%- endif -%}
+  </div>
+
+  <div class="grid grid-cols-2 gap-4 sm:grid-cols-3 sm:gap-6 lg:grid-cols-4">
+    {%- if collection.products_count > 0 -%}
+      {%- for product in collection.products limit: section.settings.products_to_show -%}
+        {% render 'product-card', product: product, index: forloop.index0 %}
+      {%- endfor -%}
+    {%- else -%}
+      {%- for i in (1..8) -%}
+        {% render 'placeholder-card', index: forloop.index0, style: 'grid' %}
+      {%- endfor -%}
+    {%- endif -%}
+  </div>
+</section>
+
+{% schema %}
+{
+  "name": "Featured collection",
+  "tag": "div",
+  "settings": [
+    {
+      "type": "text",
+      "id": "eyebrow",
+      "label": "Eyebrow",
+      "default": "Featured"
+    },
+    {
+      "type": "text",
+      "id": "title",
+      "label": "Heading",
+      "default": "New & Popular"
+    },
+    {
+      "type": "collection",
+      "id": "collection",
+      "label": "Collection",
+      "info": "Leave empty to show the newest products."
+    },
+    {
+      "type": "range",
+      "id": "products_to_show",
+      "label": "Products to show",
+      "min": 2,
+      "max": 24,
+      "step": 1,
+      "default": 8
+    },
+    {
+      "type": "checkbox",
+      "id": "show_view_all",
+      "label": "Show \"View all\"",
+      "default": true
+    }
+  ],
+  "presets": [
+    {
+      "name": "Featured collection"
+    }
+  ]
+}
+{% endschema %}

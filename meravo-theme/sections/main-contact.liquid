@@ -1,0 +1,129 @@
+{%- comment -%}
+  The contact page: WhatsApp and email cards, then Shopify's contact form.
+  Messages arrive at the store's sender email (Settings > Notifications).
+  Assign this template ("contact") to the Contact page in Online Store >
+  Pages.
+{%- endcomment -%}
+{%- liquid
+  assign whatsapp_digits = settings.contact_whatsapp | remove: ' ' | remove: '+'
+-%}
+<div class="mx-auto max-w-3xl px-4 py-16 sm:px-6 lg:px-8">
+  <h1 class="fade-up font-display text-4xl text-maroon-800" style="--fade-y: 10px; --fade-duration: 0.5s;">
+    {{ page.title | default: section.settings.heading }}
+  </h1>
+  <div class="fade-up rte mt-4 text-maroon-900/70" style="--fade-y: 10px; --fade-duration: 0.5s; --fade-delay: 0.1s;">
+    {%- if page.content != blank -%}
+      {{ page.content }}
+    {%- else -%}
+      <p>{{ section.settings.text }}</p>
+    {%- endif -%}
+  </div>
+
+  <div
+    class="fade-up mt-10 grid grid-cols-1 gap-6 sm:grid-cols-2"
+    style="--fade-y: 10px; --fade-duration: 0.5s; --fade-delay: 0.2s;"
+  >
+    {%- if whatsapp_digits != blank -%}
+      <a
+        href="https://wa.me/{{ whatsapp_digits }}"
+        target="_blank"
+        rel="noreferrer"
+        class="rounded-2xl bg-white p-6 ring-1 ring-maroon-100 transition-shadow hover:shadow-lg"
+      >
+        <p class="text-sm font-semibold uppercase tracking-wide text-gold-600">{{ 'contact.whatsapp' | t }}</p>
+        <p class="mt-2 text-lg text-maroon-900">{{ settings.contact_phone }}</p>
+      </a>
+    {%- endif -%}
+    {%- if settings.contact_email != blank -%}
+      <a
+        href="mailto:{{ settings.contact_email }}"
+        class="rounded-2xl bg-white p-6 ring-1 ring-maroon-100 transition-shadow hover:shadow-lg"
+      >
+        <p class="text-sm font-semibold uppercase tracking-wide text-gold-600">{{ 'contact.email' | t }}</p>
+        <p class="mt-2 break-words text-lg text-maroon-900">{{ settings.contact_email }}</p>
+      </a>
+    {%- endif -%}
+  </div>
+
+  <div
+    class="fade-up mt-10 rounded-2xl bg-white p-6 ring-1 ring-maroon-100 sm:p-8"
+    style="--fade-y: 10px; --fade-duration: 0.5s; --fade-delay: 0.3s;"
+  >
+    <h2 class="font-display text-2xl text-maroon-800">{{ section.settings.form_heading }}</h2>
+
+    {%- form 'contact', id: 'ContactForm', class: 'mt-6 space-y-4' -%}
+      {%- if form.posted_successfully? -%}
+        <p class="flex items-center gap-2 rounded-xl bg-blush-50 p-4 text-sm font-medium text-maroon-800 ring-1 ring-maroon-100" role="status" tabindex="-1" autofocus>
+          {%- render 'icon', name: 'check', class: 'h-4 w-4 shrink-0' -%}
+          {{ 'contact.success' | t }}
+        </p>
+      {%- elsif form.errors -%}
+        <div class="rounded-xl bg-red-50 p-4 text-sm text-red-700 ring-1 ring-red-200" role="alert" tabindex="-1" autofocus>
+          {{ form.errors | default_errors }}
+        </div>
+      {%- endif -%}
+
+      <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <label class="block">
+          <span class="mb-1 block text-sm font-medium text-maroon-900/70">{{ 'contact.name' | t }}</span>
+          <input type="text" name="contact[name]" autocomplete="name" value="{{ form.name }}" class="input">
+        </label>
+        <label class="block">
+          <span class="mb-1 block text-sm font-medium text-maroon-900/70">{{ 'contact.email_label' | t }}</span>
+          <input
+            type="email"
+            name="contact[email]"
+            autocomplete="email"
+            autocapitalize="off"
+            spellcheck="false"
+            required
+            value="{%- if form.email != blank -%}{{ form.email }}{%- elsif customer -%}{{ customer.email }}{%- endif -%}"
+            class="input"
+          >
+        </label>
+      </div>
+      <label class="block">
+        <span class="mb-1 block text-sm font-medium text-maroon-900/70">{{ 'contact.phone' | t }}</span>
+        <input type="tel" name="contact[phone]" autocomplete="tel" value="{{ form.phone }}" class="input">
+      </label>
+      <label class="block">
+        <span class="mb-1 block text-sm font-medium text-maroon-900/70">{{ 'contact.message' | t }}</span>
+        <textarea name="contact[body]" rows="5" required class="input">{{ form.body }}</textarea>
+      </label>
+      <button type="submit" class="w-full rounded-full bg-maroon-700 py-3 text-sm font-semibold text-white hover:bg-maroon-800">
+        {{- 'contact.send' | t -}}
+      </button>
+    {%- endform -%}
+  </div>
+</div>
+
+{% schema %}
+{
+  "name": "Contact",
+  "tag": "section",
+  "settings": [
+    {
+      "type": "text",
+      "id": "heading",
+      "label": "Heading (if the page has no title)",
+      "default": "Get in Touch"
+    },
+    {
+      "type": "text",
+      "id": "text",
+      "label": "Intro (if the page has no content)",
+      "default": "Questions about an order, a product, or delivery? We're happy to help."
+    },
+    {
+      "type": "text",
+      "id": "form_heading",
+      "label": "Form heading",
+      "default": "Send us a message"
+    },
+    {
+      "type": "paragraph",
+      "content": "The WhatsApp number and email come from Theme settings > Contact details."
+    }
+  ]
+}
+{% endschema %}

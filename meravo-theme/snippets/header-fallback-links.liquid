@@ -1,0 +1,58 @@
+{%- comment -%}
+  The storefront's own menu (Home, Shop, About, Contact), used until a menu
+  with links is chosen for the header. About and Contact appear once pages
+  with those handles exist.
+
+  Accepts: about_page, contact_page, style ('desktop' or 'mobile')
+{%- endcomment -%}
+{%- liquid
+  assign urls = routes.root_url | append: '|' | append: routes.all_products_collection_url
+  assign titles = 'sections.header.fallback_home' | t | append: '|'
+  assign shop_title = 'sections.header.fallback_shop' | t
+  assign titles = titles | append: shop_title
+  if about_page
+    assign about_title = 'sections.header.fallback_about' | t
+    assign urls = urls | append: '|' | append: about_page.url
+    assign titles = titles | append: '|' | append: about_title
+  endif
+  if contact_page
+    assign contact_title = 'sections.header.fallback_contact' | t
+    assign urls = urls | append: '|' | append: contact_page.url
+    assign titles = titles | append: '|' | append: contact_title
+  endif
+  assign url_list = urls | split: '|'
+  assign title_list = titles | split: '|'
+-%}
+{%- for url in url_list -%}
+  {%- liquid
+    assign title = title_list[forloop.index0]
+    assign current = false
+    if request.path == url
+      assign current = true
+    endif
+  -%}
+  {%- if style == 'mobile' -%}
+    <a
+      href="{{ url }}"
+      class="text-sm font-medium text-maroon-900/80"
+      {% if current %}
+        aria-current="page"
+      {% endif %}
+    >
+      {{- title -}}
+    </a>
+  {%- else -%}
+    <a
+      href="{{ url }}"
+      class="relative py-1 text-sm font-medium tracking-wide text-maroon-900/70 transition-colors hover:text-maroon-600 aria-[current=page]:text-maroon-700"
+      {% if current %}
+        aria-current="page"
+      {% endif %}
+    >
+      {{- title -}}
+      {%- if current -%}
+        <span class="absolute -bottom-0.5 left-0 right-0 h-0.5 rounded-full bg-maroon-600"></span>
+      {%- endif -%}
+    </a>
+  {%- endif -%}
+{%- endfor -%}

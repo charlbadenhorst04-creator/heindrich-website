@@ -1,0 +1,64 @@
+{
+  "sections": {
+    "hero": {
+      "type": "hero",
+      "settings": {
+        "eyebrow": "Proudly South African",
+        "heading": "Your Style. Your Story.",
+        "text": "Discover carefully chosen products for home, family and everyday life — delivered to your door, anywhere in South Africa.",
+        "button_label": "Shop Now",
+        "button_link": "",
+        "show_mascot": true,
+        "show_glow": true
+      }
+    },
+    "showcase": {
+      "type": "product-showcase",
+      "settings": {
+        "eyebrow": "Shop the Range",
+        "title": "Popular Right Now",
+        "collection": "",
+        "products_to_show": 8
+      }
+    },
+    "featured": {
+      "type": "featured-collection",
+      "settings": {
+        "eyebrow": "Featured",
+        "title": "New & Popular",
+        "collection": "",
+        "products_to_show": 8,
+        "show_view_all": true
+      }
+    },
+    "promises": {
+      "type": "feature-banner",
+      "blocks": {
+        "delivery": {
+          "type": "promise",
+          "settings": {
+            "title": "Nationwide Delivery",
+            "text": "Fast, tracked shipping across South Africa."
+          }
+        },
+        "checkout": {
+          "type": "promise",
+          "settings": {
+            "title": "Secure Checkout",
+            "text": "Pay securely by card or straight from your bank."
+          }
+        },
+        "support": {
+          "type": "promise",
+          "settings": {
+            "title": "Real Support",
+            "text": "Reach us on WhatsApp for any questions."
+          }
+        }
+      },
+      "block_order": ["delivery", "checkout", "support"],
+      "settings": {}
+    }
+  },
+  "order": ["hero", "showcase", "featured", "promises"]
+}

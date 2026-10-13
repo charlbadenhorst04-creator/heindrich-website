@@ -1,0 +1,22 @@
+{%- comment -%}
+  Stands in for a product in the theme editor before a collection is
+  chosen, so a section never renders as an empty gap.
+
+  Accepts: index, style ('grid' or 'showcase')
+{%- endcomment -%}
+{%- liquid
+  assign position = index | default: 0
+  assign art = position | modulo: 6 | plus: 1
+  assign art_name = 'product-' | append: art
+-%}
+<div
+  class="{% if style == 'showcase' %}w-64 shrink-0 snap-center md:w-auto md:shrink{% endif %} overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-maroon-100"
+>
+  <div class="aspect-square overflow-hidden bg-blush-100">
+    {{ art_name | placeholder_svg_tag: 'h-full w-full fill-maroon-200' }}
+  </div>
+  <div class="p-4">
+    <h3 class="line-clamp-2 font-medium text-maroon-900">{{ 'products.product.placeholder_title' | t }}</h3>
+    <p class="mt-2 font-display text-lg text-maroon-700">{{ 4990 | money }}</p>
+  </div>
+</div>

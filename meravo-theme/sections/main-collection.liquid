@@ -1,0 +1,150 @@
+{%- comment -%}
+  The Shop page. Category pills across the top, product search, the grid,
+  and "Load more" that fetches the next page in place (a plain link to it
+  without JavaScript).
+
+  The pills are every collection in the store, or the links of a menu if
+  one is chosen. All products (/collections/all) is "All".
+{%- endcomment -%}
+{%- liquid
+  assign is_all = false
+  if collection.handle == 'all'
+    assign is_all = true
+  endif
+  assign category_menu = section.settings.category_menu
+-%}
+
+{%- paginate collection.products by section.settings.products_per_page -%}
+  <div class="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
+    {%- if is_all -%}
+      <h1 class="font-display text-3xl text-maroon-800">{{ section.settings.all_heading | default: collection.title }}</h1>
+      {%- if section.settings.all_text != blank -%}
+        <p class="mt-2 text-maroon-900/60">{{ section.settings.all_text }}</p>
+      {%- endif -%}
+    {%- else -%}
+      <h1 class="font-display text-3xl text-maroon-800">{{ collection.title }}</h1>
+      {%- if collection.description != blank -%}
+        <div class="rte mt-2 text-maroon-900/60">{{ collection.description }}</div>
+      {%- endif -%}
+    {%- endif -%}
+
+    <div class="mt-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <nav class="flex flex-wrap gap-2" aria-label="{{ 'collections.general.categories' | t }}">
+        <a
+          href="{{ routes.all_products_collection_url }}"
+          class="rounded-full px-4 py-2 text-sm font-medium transition-colors {% if is_all %}bg-maroon-700 text-white{% else %}bg-white text-maroon-800 ring-1 ring-maroon-200{% endif %}"
+          {% if is_all %}
+            aria-current="page"
+          {% endif %}
+        >
+          {{- 'collections.general.all' | t -}}
+        </a>
+        {%- if category_menu.links.size > 0 -%}
+          {%- for link in category_menu.links -%}
+            <a
+              href="{{ link.url }}"
+              class="rounded-full px-4 py-2 text-sm font-medium transition-colors {% if link.current %}bg-maroon-700 text-white{% else %}bg-white text-maroon-800 ring-1 ring-maroon-200{% endif %}"
+              {% if link.current %}
+                aria-current="page"
+              {% endif %}
+            >
+              {{- link.title -}}
+            </a>
+          {%- endfor -%}
+        {%- else -%}
+          {%- for category in collections -%}
+            {%- if category.handle != 'all' and category.handle != 'frontpage' and category.products_count > 0 -%}
+              {%- assign active = false -%}
+              {%- if category.handle == collection.handle -%}
+                {%- assign active = true -%}
+              {%- endif -%}
+              <a
+                href="{{ category.url }}"
+                class="rounded-full px-4 py-2 text-sm font-medium transition-colors {% if active %}bg-maroon-700 text-white{% else %}bg-white text-maroon-800 ring-1 ring-maroon-200{% endif %}"
+                {% if active %}
+                  aria-current="page"
+                {% endif %}
+              >
+                {{- category.title -}}
+              </a>
+            {%- endif -%}
+          {%- endfor -%}
+        {%- endif -%}
+      </nav>
+
+      <form action="{{ routes.search_url }}" method="get" role="search" class="w-full sm:w-64">
+        <input type="hidden" name="type" value="product">
+        <label class="sr-only" for="CollectionSearch-{{ section.id }}">{{ 'general.search.label' | t }}</label>
+        <input
+          id="CollectionSearch-{{ section.id }}"
+          type="search"
+          name="q"
+          placeholder="{{ 'general.search.placeholder' | t }}"
+          class="w-full rounded-full border border-maroon-200 bg-white px-5 py-2 text-sm outline-none ring-maroon-300 focus:ring-2"
+        >
+      </form>
+    </div>
+
+    {%- if collection.products_count > 0 -%}
+      <div class="mt-10 grid grid-cols-2 gap-4 sm:grid-cols-3 sm:gap-6 lg:grid-cols-4" data-product-grid>
+        {%- for product in collection.products -%}
+          {% render 'product-card', product: product, index: forloop.index0 %}
+        {%- endfor -%}
+      </div>
+
+      {%- if paginate.next -%}
+        {%- liquid
+          assign shown = paginate.current_offset | plus: paginate.page_size
+          assign remaining = paginate.items | minus: shown
+        -%}
+        <div class="mt-10 text-center" data-load-more-wrap>
+          <a
+            href="{{ paginate.next.url }}"
+            class="inline-block rounded-full bg-maroon-700 px-8 py-3 text-sm font-semibold text-white transition-colors hover:bg-maroon-800 aria-busy:opacity-60"
+            data-load-more
+          >
+            {{- 'collections.general.load_more' | t: count: remaining -}}
+          </a>
+        </div>
+      {%- endif -%}
+    {%- else -%}
+      <p class="fade-in mt-16 text-center text-maroon-900/50">{{ 'collections.general.empty' | t }}</p>
+    {%- endif -%}
+  </div>
+{%- endpaginate -%}
+
+{% schema %}
+{
+  "name": "Product grid",
+  "tag": "section",
+  "settings": [
+    {
+      "type": "text",
+      "id": "all_heading",
+      "label": "Heading on All products",
+      "default": "Browse & Buy"
+    },
+    {
+      "type": "text",
+      "id": "all_text",
+      "label": "Text on All products",
+      "default": "Everything you need, all in one place."
+    },
+    {
+      "type": "link_list",
+      "id": "category_menu",
+      "label": "Category menu",
+      "info": "Leave empty to show every collection that has products."
+    },
+    {
+      "type": "range",
+      "id": "products_per_page",
+      "label": "Products per page",
+      "min": 8,
+      "max": 48,
+      "step": 4,
+      "default": 16
+    }
+  ]
+}
+{% endschema %}

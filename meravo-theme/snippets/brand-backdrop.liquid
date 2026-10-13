@@ -1,0 +1,68 @@
+{%- comment -%}
+  The MERAVO artwork, held behind the whole site.
+
+  It stays put while the page scrolls: the brand is always there without
+  ever being something to scroll past. Two things keep it from competing
+  with the products in front of it - it is held at low opacity, and a wash
+  of the site's own background colour lies over it, heaviest in the middle.
+
+  Wide screens show the whole banner. Phones get a portrait crop of the same
+  artwork, because the full banner is two and a half times wider than it is
+  tall and would shrink to an unreadable band.
+
+  Fixed positioning rather than background-attachment: fixed, which iOS
+  Safari has never handled properly.
+
+  Images: Theme settings > Brand. Without them, the artwork bundled in
+  assets/ is used.
+{%- endcomment -%}
+{%- if settings.backdrop_enabled -%}
+  {%- liquid
+    if settings.backdrop_desktop != blank
+      assign desktop_src = settings.backdrop_desktop | image_url: width: 2400
+    else
+      assign desktop_src = 'meravo-banner.jpg' | asset_url
+    endif
+    if settings.backdrop_mobile != blank
+      assign mobile_src = settings.backdrop_mobile | image_url: width: 1200
+    else
+      assign mobile_src = 'meravo-banner-portrait.jpg' | asset_url
+    endif
+    assign opacity = settings.backdrop_opacity | divided_by: 100.0
+  -%}
+  <div
+    aria-hidden="true"
+    class="pointer-events-none fixed inset-0 z-0 overflow-hidden opacity-90 md:opacity-100"
+  >
+    <picture
+      class="backdrop-art block h-full w-full{% if settings.backdrop_animate %} is-breathing{% endif %}"
+      style="--backdrop-opacity: {{ opacity }};"
+    >
+      {%- comment -%} Only the one that matches is fetched. {%- endcomment -%}
+      <source media="(min-width: 768px)" srcset="{{ desktop_src }}">
+      <img
+        src="{{ mobile_src }}"
+        alt=""
+        width="800"
+        height="480"
+        loading="eager"
+        fetchpriority="low"
+        class="h-full w-full object-contain object-center"
+      >
+    </picture>
+
+    {%- comment -%}
+      Softens the middle of the screen, where the products and text sit,
+      while the artwork stays legible towards the edges.
+    {%- endcomment -%}
+    <div class="absolute inset-0 bg-[radial-gradient(ellipse_120%_90%_at_50%_45%,rgba(253,246,243,0.34)_0%,rgba(253,246,243,0.42)_45%,rgba(253,246,243,0.6)_80%,rgba(253,246,243,0.76)_100%)]"></div>
+
+    {%- if settings.walker_enabled -%}
+      {% render 'walking-woman' %}
+    {%- endif -%}
+  </div>
+{%- elsif settings.walker_enabled -%}
+  <div aria-hidden="true" class="pointer-events-none fixed inset-0 z-0 overflow-hidden">
+    {% render 'walking-woman' %}
+  </div>
+{%- endif -%}

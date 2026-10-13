@@ -1,0 +1,687 @@
+/*
+ * Source for meravo-theme/assets/theme.css (built by build.sh).
+ *
+ * The base layer is frontend/src/index.css. Everything after it replaces
+ * what Framer Motion did on the React site: the same distances, durations
+ * and easing, in CSS, so the theme needs no animation library.
+ */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ------------------------------------------------------------------ base */
+
+html {
+  scroll-behavior: smooth;
+}
+
+/* `hidden` has to beat utility classes like `flex`, which would otherwise
+   show the cart bubble, spinners and the minimised M all at once. */
+[hidden] {
+  display: none !important;
+}
+
+body {
+  @apply bg-blush-50 font-sans text-maroon-900 antialiased;
+}
+
+::selection {
+  @apply bg-maroon-200 text-maroon-900;
+}
+
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid theme("colors.maroon.500");
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* The React site loaded Playfair Display at 500-700 only, so an unweighted
+   heading rendered at 500. Said outright here, so the theme matches
+   whichever weights the font picker loads. In the components layer, so a
+   weight class such as font-semibold on the same element still wins. */
+@layer components {
+  .font-display {
+    font-weight: 500;
+  }
+}
+
+.input {
+  @apply w-full rounded-lg border border-maroon-200 bg-white px-4 py-2.5 text-sm text-maroon-900 outline-none ring-maroon-300 focus:ring-2;
+}
+
+.skip-link {
+  @apply sr-only;
+}
+.skip-link:focus {
+  @apply not-sr-only fixed left-4 top-4 z-[200] rounded-full bg-maroon-800 px-5 py-2 text-sm font-semibold text-white;
+}
+
+/* Shopify wraps every section in a div, so the header's own `sticky` would
+   only stick within that wrapper. The wrapper is made sticky instead. */
+.section-header {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+}
+
+/* Number inputs used as quantity readouts, without the browser spinners. */
+.qty-input {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+.qty-input::-webkit-outer-spin-button,
+.qty-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* ------------------------------------------- rich text (pages, policies) */
+
+.rte > * + * {
+  margin-top: 1rem;
+}
+.rte h2,
+.rte h3 {
+  @apply font-display text-xl text-maroon-800 sm:text-2xl;
+}
+.rte h2 + *,
+.rte h3 + * {
+  margin-top: 0.5rem;
+}
+.rte * + h2,
+.rte * + h3 {
+  margin-top: 2rem;
+}
+.rte a {
+  @apply font-medium text-maroon-700 underline-offset-2 hover:underline;
+}
+.rte ul {
+  @apply list-disc pl-6;
+}
+.rte ol {
+  @apply list-decimal pl-6;
+}
+.rte li + li {
+  margin-top: 0.25rem;
+}
+.rte strong {
+  @apply font-semibold text-maroon-900;
+}
+.rte img {
+  @apply h-auto max-w-full rounded-2xl;
+}
+
+/* Shopify renders policy pages itself; this gives them the look of the
+   Privacy, Returns and Terms pages on the React site. */
+.shopify-policy__container {
+  @apply mx-auto max-w-3xl px-4 py-16 sm:px-6 lg:px-8;
+  max-width: 48rem !important;
+}
+.shopify-policy__title h1 {
+  @apply font-display text-4xl text-maroon-800;
+  animation: fade-up 0.5s ease-out both;
+  --fade-y: 10px;
+}
+.shopify-policy__body {
+  @apply mt-8 rounded-2xl bg-white p-6 leading-relaxed text-maroon-900/70 ring-1 ring-maroon-100 sm:p-8 sm:text-lg;
+  animation: fade-up 0.5s ease-out 0.1s both;
+  --fade-y: 10px;
+}
+
+/* ------------------------------------------------------------ animation */
+
+/* Page change: the React site faded each page in over 0.18s. */
+.page-fade {
+  animation: fade-in 0.18s ease-out both;
+}
+
+/* On-load entrance, matching motion's initial={{ opacity: 0, y }}. Set
+   --fade-y, --fade-duration and --fade-delay inline. */
+.fade-up {
+  animation: fade-up var(--fade-duration, 0.6s) cubic-bezier(0.25, 0.1, 0.25, 1) var(--fade-delay, 0s) both;
+}
+.fade-in {
+  animation: fade-in var(--fade-duration, 0.4s) ease-out var(--fade-delay, 0s) both;
+}
+.fade-x {
+  animation: fade-x var(--fade-duration, 0.4s) cubic-bezier(0.25, 0.1, 0.25, 1) var(--fade-delay, 0s) both;
+}
+.zoom-in {
+  animation: zoom-in var(--fade-duration, 0.4s) cubic-bezier(0.25, 0.1, 0.25, 1) var(--fade-delay, 0s) both;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    translate: 0 var(--fade-y, 20px);
+  }
+}
+@keyframes fade-x {
+  from {
+    opacity: 0;
+    translate: var(--fade-x, 20px) 0;
+  }
+}
+@keyframes zoom-in {
+  from {
+    opacity: 0;
+    scale: 0.96;
+  }
+}
+
+/* Scroll entrance, matching whileInView. Only hidden once theme.js has
+   loaded (it swaps no-js for js), so nothing stays invisible without it. */
+.js [data-reveal] {
+  opacity: 0;
+  translate: var(--reveal-x, 0) var(--reveal-y, 24px);
+  transition:
+    opacity var(--reveal-duration, 0.4s) cubic-bezier(0.25, 0.1, 0.25, 1) var(--reveal-delay, 0s),
+    translate var(--reveal-duration, 0.4s) cubic-bezier(0.25, 0.1, 0.25, 1) var(--reveal-delay, 0s);
+}
+.js [data-reveal].is-revealed {
+  opacity: 1;
+  translate: 0 0;
+}
+
+/* Cards lift on hover (whileHover y: -6). `translate` above is the scroll
+   entrance, so the lift uses `transform` and the two never fight. */
+.card-lift {
+  transition:
+    transform 0.35s cubic-bezier(0.34, 1.4, 0.64, 1),
+    box-shadow 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.card-lift:hover {
+  transform: translateY(-6px);
+}
+.card-lift-scale:hover {
+  transform: translateY(-6px) scale(1.02);
+}
+.card-lift-scale:active {
+  transform: translateY(-6px) scale(0.98);
+}
+
+/* Product photos grow and spin once on hover: scale over 0.5s, rotate over
+   0.9s, as separate properties so each keeps its own timing. */
+.spin-on-hover {
+  transition:
+    scale 0.5s cubic-bezier(0, 0, 0.58, 1),
+    rotate 0.9s cubic-bezier(0.42, 0, 0.58, 1);
+}
+.spin-on-hover:hover {
+  scale: 1.08;
+  rotate: 360deg;
+}
+
+/* whileTap. Colour is listed too, because this replaces Tailwind's
+   transition-colors on the same buttons. */
+.tap-shrink {
+  transition:
+    scale 0.15s ease-out,
+    background-color 0.15s cubic-bezier(0.4, 0, 0.2, 1),
+    color 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.tap-shrink:active {
+  scale: 0.92;
+}
+.tap-shrink-sm:active {
+  scale: 0.96;
+}
+
+/* Hero glow blobs. */
+.pulse-soft {
+  animation: pulse-soft 6s ease-in-out infinite;
+}
+.pulse-soft-slow {
+  animation: pulse-soft-slow 7s ease-in-out infinite;
+}
+@keyframes pulse-soft {
+  50% {
+    scale: 1.15;
+  }
+}
+@keyframes pulse-soft-slow {
+  50% {
+    scale: 1.2;
+  }
+}
+
+/* Cart count bubble pops in. */
+.pop-in {
+  animation: pop-in 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+@keyframes pop-in {
+  from {
+    scale: 0;
+  }
+}
+
+/* Mobile menu opens by height, like AnimatePresence did. */
+.collapse-panel {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transition:
+    grid-template-rows 0.3s ease,
+    opacity 0.3s ease;
+}
+.collapse-panel > * {
+  overflow: hidden;
+}
+.collapse-panel.is-open {
+  grid-template-rows: 1fr;
+  opacity: 1;
+}
+
+/* Toasts */
+.toast {
+  animation: toast-in 0.3s cubic-bezier(0.34, 1.3, 0.64, 1) both;
+}
+.toast.is-leaving {
+  animation: toast-out 0.2s ease-in both;
+}
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    translate: 0 16px;
+    scale: 0.95;
+  }
+}
+@keyframes toast-out {
+  to {
+    opacity: 0;
+    translate: 0 8px;
+    scale: 0.95;
+  }
+}
+
+/* Cart lines leave to the left. */
+.line-leaving {
+  opacity: 0 !important;
+  translate: -30px 0;
+  transition:
+    opacity 0.2s ease,
+    translate 0.2s ease;
+}
+
+/* ------------------------------------------------------- brand backdrop */
+
+.backdrop-art {
+  opacity: 0;
+  animation: backdrop-in 1.6s ease-out forwards;
+}
+.backdrop-art.is-breathing {
+  animation:
+    backdrop-in 1.6s ease-out forwards,
+    backdrop-breathe 48s ease-in-out infinite;
+}
+@keyframes backdrop-in {
+  from {
+    opacity: 0;
+    scale: 1.04;
+  }
+  to {
+    opacity: var(--backdrop-opacity, 0.58);
+  }
+}
+@keyframes backdrop-breathe {
+  0%,
+  100% {
+    scale: 1.02;
+  }
+  50% {
+    scale: 1.06;
+  }
+}
+
+/* -------------------------------------------------------- walking woman */
+
+/* She crosses the bottom of the screen from left to right, then starts
+   again. Crossing time follows the screen width, so her pace looks the
+   same on a phone as on a laptop. */
+.walker {
+  position: absolute;
+  bottom: 2vh;
+  left: 0;
+  height: 9rem;
+  opacity: var(--walker-opacity, 0.45);
+  animation: walker-cross 24s linear infinite;
+}
+@media (min-width: 768px) {
+  .walker {
+    bottom: 3vh;
+    height: 13rem;
+    animation-duration: 46s;
+  }
+}
+@keyframes walker-cross {
+  from {
+    translate: -8rem 0;
+  }
+  to {
+    translate: calc(100vw + 2rem) 0;
+  }
+}
+
+/* One stride every 1.2s. Parts turn about her hip, shoulder and hand,
+   given in the drawing's own units. */
+.walker-leg,
+.walker-arm,
+.walker-bag {
+  transform-box: view-box;
+  animation-duration: 1.2s;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+}
+.walker-leg {
+  transform-origin: 62.5px 150px;
+  animation-name: walker-leg;
+}
+.walker-leg-back {
+  animation-delay: -0.6s;
+}
+.walker-arm {
+  transform-origin: 62.5px 80px;
+  animation-name: walker-arm;
+}
+.walker-arm-back {
+  animation-delay: -0.6s;
+}
+.walker-bag {
+  transform-origin: 62.7px 137px;
+  animation-name: walker-bag;
+  animation-delay: -0.15s;
+}
+.walker-bob {
+  height: 100%;
+  animation: walker-bob 0.6s ease-in-out infinite;
+}
+.walker-shadow {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: walker-shadow 0.6s ease-in-out infinite;
+}
+@keyframes walker-leg {
+  0%,
+  100% {
+    rotate: -22deg;
+  }
+  50% {
+    rotate: 22deg;
+  }
+}
+@keyframes walker-arm {
+  0%,
+  100% {
+    rotate: 16deg;
+  }
+  50% {
+    rotate: -16deg;
+  }
+}
+@keyframes walker-bag {
+  0%,
+  100% {
+    rotate: -12deg;
+  }
+  50% {
+    rotate: 12deg;
+  }
+}
+/* Lowest with her legs apart, highest as they pass. */
+@keyframes walker-bob {
+  0%,
+  100% {
+    translate: 0 0;
+  }
+  50% {
+    translate: 0 -3px;
+  }
+}
+@keyframes walker-shadow {
+  50% {
+    scale: 0.9 1;
+  }
+}
+
+/* --------------------------------------------------------------- mascots */
+
+/* Every animated part turns about its own centre, as Framer Motion's SVG
+   handling does. */
+.svg-part {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.mascot-float {
+  animation: mascot-float 3.2s ease-in-out infinite;
+}
+@keyframes mascot-float {
+  50% {
+    translate: 0 -12px;
+  }
+}
+
+/* 2.4s of waving, then 1.6s still. */
+.mascot-wave {
+  animation: mascot-wave 4s ease-in-out infinite;
+}
+@keyframes mascot-wave {
+  0%,
+  30%,
+  60%,
+  100% {
+    rotate: 0deg;
+  }
+  15%,
+  45% {
+    rotate: 24deg;
+  }
+}
+
+.mascot-blink {
+  animation: mascot-blink 4s ease-in-out infinite;
+}
+.mascot-blink-fast {
+  animation: mascot-blink 3.6s ease-in-out infinite;
+}
+@keyframes mascot-blink {
+  0%,
+  85%,
+  95%,
+  100% {
+    scale: 1 1;
+  }
+  90% {
+    scale: 1 0.1;
+  }
+}
+
+.mascot-sparkle {
+  opacity: 0;
+  animation: mascot-sparkle 1.8s ease-in-out infinite;
+}
+@keyframes mascot-sparkle {
+  0%,
+  100% {
+    opacity: 0;
+    scale: 0.4;
+  }
+  50% {
+    opacity: 1;
+    scale: 1;
+  }
+}
+
+/* M, the corner assistant. */
+.assistant-bob {
+  animation: assistant-bob 2.6s ease-in-out infinite;
+}
+.assistant-bob.is-celebrating {
+  animation: assistant-celebrate 0.8s ease-in-out;
+}
+@keyframes assistant-bob {
+  50% {
+    translate: 0 -6px;
+  }
+}
+@keyframes assistant-celebrate {
+  0%,
+  100% {
+    translate: 0 0;
+    rotate: 0deg;
+  }
+  25% {
+    translate: 0 -18px;
+    rotate: -8deg;
+  }
+  50% {
+    translate: 0 0;
+    rotate: 8deg;
+  }
+  75% {
+    translate: 0 -10px;
+    rotate: -8deg;
+  }
+}
+
+.assistant-hand.is-waving {
+  animation: assistant-wave 1.6s ease-in-out;
+}
+@keyframes assistant-wave {
+  0%,
+  40%,
+  80%,
+  100% {
+    rotate: 0deg;
+  }
+  20%,
+  60% {
+    rotate: 24deg;
+  }
+}
+
+.assistant-sparkle {
+  opacity: 0;
+  scale: 0;
+}
+.is-celebrating .assistant-sparkle {
+  animation: assistant-sparkle 0.9s ease-out var(--sparkle-delay, 0s) both;
+}
+@keyframes assistant-sparkle {
+  0% {
+    opacity: 0;
+    scale: 0;
+    translate: 0 0;
+  }
+  50% {
+    opacity: 1;
+    scale: 1;
+  }
+  100% {
+    opacity: 0;
+    scale: 0;
+    translate: 0 -14px;
+  }
+}
+
+.bubble {
+  opacity: 0;
+  translate: 0 8px;
+  scale: 0.95;
+  pointer-events: none;
+  transition:
+    opacity 0.2s ease,
+    translate 0.2s ease,
+    scale 0.2s ease;
+}
+.bubble.is-open {
+  opacity: 1;
+  translate: 0 0;
+  scale: 1;
+  pointer-events: auto;
+}
+
+.assistant-launcher {
+  transition: scale 0.2s ease;
+}
+.assistant-launcher:hover {
+  scale: 1.08;
+}
+.assistant-launcher:active {
+  scale: 0.94;
+}
+
+/* Product viewer: hint fades away after the first touch. */
+.viewer-hint {
+  transition: opacity 0.3s ease;
+}
+.viewer-hint.is-hidden {
+  opacity: 0;
+}
+
+/* ------------------------------------------------- reduced motion */
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  .page-fade,
+  .fade-up,
+  .fade-in,
+  .fade-x,
+  .zoom-in,
+  .pulse-soft,
+  .pulse-soft-slow,
+  .mascot-float,
+  .mascot-wave,
+  .mascot-blink,
+  .mascot-blink-fast,
+  .assistant-bob,
+  .shopify-policy__title h1,
+  .shopify-policy__body {
+    animation: none !important;
+  }
+  .mascot-sparkle {
+    animation: none !important;
+    opacity: 1;
+  }
+  .walker,
+  .walker-leg,
+  .walker-arm,
+  .walker-bag,
+  .walker-bob,
+  .walker-shadow {
+    animation: none !important;
+  }
+  .walker {
+    left: auto;
+    right: 6vw;
+  }
+  .backdrop-art,
+  .backdrop-art.is-breathing {
+    animation: backdrop-in 0.8s ease-out forwards !important;
+  }
+  .js [data-reveal] {
+    translate: 0 0;
+  }
+  .spin-on-hover:hover {
+    rotate: 0deg;
+  }
+}

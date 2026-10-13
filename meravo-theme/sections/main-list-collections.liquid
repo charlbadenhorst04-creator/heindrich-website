@@ -1,0 +1,62 @@
+{%- comment -%} /collections: every collection, as photo tiles. {%- endcomment -%}
+<div class="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
+  <h1 class="font-display text-3xl text-maroon-800">{{ section.settings.heading }}</h1>
+
+  <div class="mt-10 grid grid-cols-2 gap-4 sm:grid-cols-3 sm:gap-6 lg:grid-cols-4">
+    {%- for collection in collections -%}
+      {%- if collection.handle != 'frontpage' and collection.products_count > 0 -%}
+        {%- liquid
+          assign delay = forloop.index0 | times: 0.05
+          if delay > 0.4
+            assign delay = 0.4
+          endif
+          assign cover = collection.featured_image | default: collection.products.first.featured_media.preview_image
+        -%}
+        <a
+          href="{{ collection.url }}"
+          class="card-lift group block overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-maroon-100 hover:shadow-xl"
+          data-reveal
+          style="--reveal-delay: {{ delay }}s;"
+        >
+          <div class="aspect-square overflow-hidden bg-blush-100">
+            {%- if cover -%}
+              {{
+                cover
+                | image_url: width: 800
+                | image_tag:
+                  loading: 'lazy',
+                  widths: '300, 400, 600, 800',
+                  sizes: '(min-width: 1024px) 22vw, (min-width: 640px) 30vw, 46vw',
+                  class: 'spin-on-hover h-full w-full object-cover',
+                  alt: collection.title
+              }}
+            {%- else -%}
+              {% render 'image-placeholder' %}
+            {%- endif -%}
+          </div>
+          <div class="p-4">
+            <h2 class="font-medium text-maroon-900">{{ collection.title }}</h2>
+            <p class="mt-1 text-xs uppercase tracking-wide text-gold-600">
+              {{- 'collections.general.product_count' | t: count: collection.products_count -}}
+            </p>
+          </div>
+        </a>
+      {%- endif -%}
+    {%- endfor -%}
+  </div>
+</div>
+
+{% schema %}
+{
+  "name": "Collections list",
+  "tag": "section",
+  "settings": [
+    {
+      "type": "text",
+      "id": "heading",
+      "label": "Heading",
+      "default": "Shop by Category"
+    }
+  ]
+}
+{% endschema %}

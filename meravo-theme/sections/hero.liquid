@@ -1,0 +1,114 @@
+{%- comment -%}
+  The homepage hero: eyebrow, headline, intro, button, two glowing blobs
+  and the waving shopper. Every word is editable in the theme editor.
+{%- endcomment -%}
+<section class="relative overflow-hidden bg-gradient-to-b from-maroon-100/60 via-blush-100/50 to-blush-50/70">
+  <div class="mx-auto flex max-w-7xl flex-col items-center px-4 py-20 text-center sm:px-6 lg:px-8 lg:py-32">
+    {%- if section.settings.eyebrow != blank -%}
+      <p
+        class="fade-up text-sm font-semibold uppercase tracking-[0.3em] text-gold-600"
+        style="--fade-y: 10px; --fade-duration: 0.5s;"
+      >
+        {{ section.settings.eyebrow }}
+      </p>
+    {%- endif -%}
+
+    {%- if section.settings.heading != blank -%}
+      <h1
+        class="fade-up mt-4 font-display text-4xl font-semibold text-maroon-800 sm:text-5xl lg:text-6xl"
+        style="--fade-y: 20px; --fade-duration: 0.6s; --fade-delay: 0.1s;"
+      >
+        {{ section.settings.heading }}
+      </h1>
+    {%- endif -%}
+
+    {%- if section.settings.text != blank -%}
+      <p
+        class="fade-up mt-6 max-w-xl text-base text-maroon-900/70 sm:text-lg"
+        style="--fade-y: 20px; --fade-duration: 0.6s; --fade-delay: 0.2s;"
+      >
+        {{ section.settings.text }}
+      </p>
+    {%- endif -%}
+
+    {%- if section.settings.button_label != blank -%}
+      <div class="fade-up mt-8" style="--fade-y: 20px; --fade-duration: 0.6s; --fade-delay: 0.3s;">
+        <a
+          href="{{ section.settings.button_link | default: routes.all_products_collection_url }}"
+          class="inline-flex items-center gap-2 rounded-full bg-maroon-700 px-8 py-3 text-sm font-semibold text-white shadow-lg transition-transform hover:-translate-y-0.5 hover:bg-maroon-800"
+        >
+          {{ section.settings.button_label }}
+          {%- render 'icon', name: 'arrow-right', class: 'h-4 w-4' -%}
+        </a>
+      </div>
+    {%- endif -%}
+  </div>
+
+  {%- if section.settings.show_glow -%}
+    <div class="pulse-soft pointer-events-none absolute -right-16 -top-16 h-72 w-72 rounded-full bg-gold-400/20 blur-3xl"></div>
+    <div class="pulse-soft-slow pointer-events-none absolute -bottom-24 -left-16 h-72 w-72 rounded-full bg-maroon-300/20 blur-3xl"></div>
+  {%- endif -%}
+
+  {%- if section.settings.show_mascot -%}
+    {% render 'hero-mascot',
+      class: 'absolute bottom-0 right-2 hidden h-56 w-56 sm:block sm:h-64 sm:w-64 lg:right-10 lg:h-80 lg:w-80'
+    %}
+  {%- endif -%}
+</section>
+
+{% schema %}
+{
+  "name": "Hero",
+  "tag": "div",
+  "settings": [
+    {
+      "type": "text",
+      "id": "eyebrow",
+      "label": "Eyebrow",
+      "default": "Proudly South African"
+    },
+    {
+      "type": "text",
+      "id": "heading",
+      "label": "Heading",
+      "default": "Your Style. Your Story."
+    },
+    {
+      "type": "textarea",
+      "id": "text",
+      "label": "Text",
+      "default": "Discover carefully chosen products for home, family and everyday life — delivered to your door, anywhere in South Africa."
+    },
+    {
+      "type": "text",
+      "id": "button_label",
+      "label": "Button label",
+      "default": "Shop Now"
+    },
+    {
+      "type": "url",
+      "id": "button_link",
+      "label": "Button link",
+      "info": "Leave empty to link to all products."
+    },
+    {
+      "type": "checkbox",
+      "id": "show_mascot",
+      "label": "Show the waving shopper",
+      "info": "Hidden on phones, where it would sit on the text.",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "show_glow",
+      "label": "Show the soft glow",
+      "default": true
+    }
+  ],
+  "presets": [
+    {
+      "name": "Hero"
+    }
+  ]
+}
+{% endschema %}

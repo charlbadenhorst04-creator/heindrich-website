@@ -1,0 +1,29 @@
+{
+  "sections": {
+    "main": {
+      "type": "main-product",
+      "blocks": {
+        "highlight-1": {
+          "type": "highlight",
+          "settings": { "text": "Thoughtfully made with everyday use in mind" }
+        },
+        "highlight-2": {
+          "type": "highlight",
+          "settings": { "text": "A practical addition to home, family or on-the-go life" }
+        },
+        "highlight-3": {
+          "type": "highlight",
+          "settings": { "text": "Care for it well and it'll care for you back" }
+        }
+      },
+      "block_order": ["highlight-1", "highlight-2", "highlight-3"],
+      "settings": {
+        "gallery_style": "tilt",
+        "show_highlights": true,
+        "highlights_heading": "See it in action",
+        "highlights_label": "Why you'll love it"
+      }
+    }
+  },
+  "order": ["main"]
+}

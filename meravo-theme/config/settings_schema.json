@@ -1,0 +1,150 @@
+[
+  {
+    "name": "theme_info",
+    "theme_name": "Meravo",
+    "theme_version": "1.0.0",
+    "theme_author": "MERAVO",
+    "theme_documentation_url": "https://github.com/charlbadenhorst04-creator/heindrich-website",
+    "theme_support_url": "https://github.com/charlbadenhorst04-creator/heindrich-website"
+  },
+  {
+    "name": "Typography",
+    "settings": [
+      {
+        "type": "header",
+        "content": "Headings"
+      },
+      {
+        "type": "font_picker",
+        "id": "type_heading_font",
+        "label": "Font",
+        "default": "playfair_display_n4"
+      },
+      {
+        "type": "header",
+        "content": "Body"
+      },
+      {
+        "type": "font_picker",
+        "id": "type_body_font",
+        "label": "Font",
+        "default": "inter_n4"
+      }
+    ]
+  },
+  {
+    "name": "Brand",
+    "settings": [
+      {
+        "type": "image_picker",
+        "id": "logo",
+        "label": "Header wordmark",
+        "info": "Replaces the MERAVO lettering next to the M. Leave empty to use the built-in lettering."
+      },
+      {
+        "type": "image_picker",
+        "id": "favicon",
+        "label": "Favicon",
+        "info": "Shown in the browser tab. 32 x 32px PNG. Leave empty to use the M."
+      },
+      {
+        "type": "header",
+        "content": "Background artwork"
+      },
+      {
+        "type": "checkbox",
+        "id": "backdrop_enabled",
+        "label": "Show the artwork behind every page",
+        "default": true
+      },
+      {
+        "type": "image_picker",
+        "id": "backdrop_desktop",
+        "label": "Artwork for wide screens",
+        "info": "Leave empty to use the MERAVO banner."
+      },
+      {
+        "type": "image_picker",
+        "id": "backdrop_mobile",
+        "label": "Artwork for phones",
+        "info": "Leave empty to use the MERAVO banner's portrait crop."
+      },
+      {
+        "type": "range",
+        "id": "backdrop_opacity",
+        "label": "Artwork strength",
+        "min": 20,
+        "max": 100,
+        "step": 2,
+        "unit": "%",
+        "default": 58
+      },
+      {
+        "type": "checkbox",
+        "id": "backdrop_animate",
+        "label": "Slow breathing movement",
+        "default": true
+      },
+      {
+        "type": "header",
+        "content": "Walking figure"
+      },
+      {
+        "type": "checkbox",
+        "id": "walker_enabled",
+        "label": "Show a woman strolling across the background with her handbag",
+        "default": true
+      },
+      {
+        "type": "range",
+        "id": "walker_opacity",
+        "label": "Figure strength",
+        "min": 10,
+        "max": 100,
+        "step": 5,
+        "unit": "%",
+        "default": 45
+      }
+    ]
+  },
+  {
+    "name": "Contact details",
+    "settings": [
+      {
+        "type": "paragraph",
+        "content": "Used in the footer, on the contact page and by the WhatsApp links."
+      },
+      {
+        "type": "text",
+        "id": "contact_phone",
+        "label": "Phone",
+        "default": "067 157 2670"
+      },
+      {
+        "type": "text",
+        "id": "contact_whatsapp",
+        "label": "WhatsApp number",
+        "info": "International format, digits only. 067 157 2670 is 27671572670.",
+        "default": "27671572670"
+      },
+      {
+        "type": "text",
+        "id": "contact_email",
+        "label": "Email",
+        "default": "Heinrichcdoman@gmail.com"
+      }
+    ]
+  },
+  {
+    "name": "Animations",
+    "settings": [
+      {
+        "type": "checkbox",
+        "id": "animations_reveal",
+        "label": "Fade products in as they scroll into view",
+        "info": "Visitors who have asked their device for less motion never see movement, whatever this is set to.",
+        "default": true
+      }
+    ]
+  }
+]

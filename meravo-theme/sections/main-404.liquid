@@ -1,0 +1,18 @@
+<div class="mx-auto max-w-2xl px-4 py-24 text-center">
+  <p class="font-display text-6xl text-maroon-700">404</p>
+  <p class="mt-4 text-maroon-900/60">{{ 'general.not_found.text' | t }}</p>
+  <a
+    href="{{ routes.root_url }}"
+    class="mt-8 inline-block rounded-full bg-maroon-700 px-8 py-3 text-sm font-semibold text-white hover:bg-maroon-800"
+  >
+    {{- 'general.not_found.home' | t -}}
+  </a>
+</div>
+
+{% schema %}
+{
+  "name": "Page not found",
+  "tag": "section",
+  "settings": []
+}
+{% endschema %}

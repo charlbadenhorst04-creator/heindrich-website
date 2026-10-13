@@ -1,0 +1,18 @@
+{
+  "current": "Default",
+  "presets": {
+    "Default": {
+      "type_heading_font": "playfair_display_n4",
+      "type_body_font": "inter_n4",
+      "backdrop_enabled": true,
+      "backdrop_opacity": 58,
+      "backdrop_animate": true,
+      "contact_phone": "067 157 2670",
+      "contact_whatsapp": "27671572670",
+      "contact_email": "Heinrichcdoman@gmail.com",
+      "animations_reveal": true,
+      "walker_enabled": true,
+      "walker_opacity": 45
+    }
+  }
+}

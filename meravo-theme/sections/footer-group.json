@@ -1,0 +1,32 @@
+{
+  "type": "footer",
+  "name": "Footer group",
+  "sections": {
+    "footer": {
+      "type": "footer",
+      "settings": {
+        "brand_name": "MERAVO",
+        "tagline": "Your style. Your story.",
+        "contact_heading": "Contact",
+        "shipping_heading": "Shipping",
+        "shipping_text": "Proudly South African. Delivered nationwide via Aramex, 2-4 business days.",
+        "policies_heading": "Policies"
+      }
+    },
+    "assistant": {
+      "type": "mascot-assistant",
+      "blocks": {
+        "tip-1": { "type": "tip", "settings": { "text": "New in this week ✨" } },
+        "tip-2": { "type": "tip", "settings": { "text": "Free delivery over R1,000" } },
+        "tip-3": { "type": "tip", "settings": { "text": "Nationwide shipping via Aramex" } },
+        "tip-4": { "type": "tip", "settings": { "text": "Secure checkout by card or bank" } },
+        "tip-5": { "type": "tip", "settings": { "text": "Need help? I'm right here." } }
+      },
+      "block_order": ["tip-1", "tip-2", "tip-3", "tip-4", "tip-5"],
+      "settings": {
+        "enabled": true
+      }
+    }
+  },
+  "order": ["footer", "assistant"]
+}

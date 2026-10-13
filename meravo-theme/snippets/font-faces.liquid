@@ -1,0 +1,37 @@
+{%- comment -%}
+  The two fonts chosen in Theme settings > Typography, loaded from Shopify's
+  font library. Defaults are the storefront's own: Playfair Display for
+  headings, Inter for everything else.
+
+  Headings load at 500, 600 and 700, which is all the React site loaded, so
+  headings look the same weight here as they did there.
+{%- endcomment -%}
+{%- liquid
+  assign heading_font = settings.type_heading_font
+  assign body_font = settings.type_body_font
+
+  assign heading_500 = heading_font | font_modify: 'weight', '500'
+  assign heading_600 = heading_font | font_modify: 'weight', '600'
+  assign heading_700 = heading_font | font_modify: 'weight', '700'
+
+  assign body_500 = body_font | font_modify: 'weight', '500'
+  assign body_600 = body_font | font_modify: 'weight', '600'
+  assign body_700 = body_font | font_modify: 'weight', '700'
+-%}
+
+{% style %}
+  {{ heading_font | font_face: font_display: 'swap' }}
+  {{ heading_500 | font_face: font_display: 'swap' }}
+  {{ heading_600 | font_face: font_display: 'swap' }}
+  {{ heading_700 | font_face: font_display: 'swap' }}
+
+  {{ body_font | font_face: font_display: 'swap' }}
+  {{ body_500 | font_face: font_display: 'swap' }}
+  {{ body_600 | font_face: font_display: 'swap' }}
+  {{ body_700 | font_face: font_display: 'swap' }}
+
+  :root {
+    --font-heading-family: {{ heading_font.family }}, {{ heading_font.fallback_families }};
+    --font-body-family: {{ body_font.family }}, {{ body_font.fallback_families }};
+  }
+{% endstyle %}

@@ -1,0 +1,389 @@
+{%- comment -%}
+  The product page.
+
+  Photo: one photo tilts towards the pointer, as on the React site. More
+  photos get thumbnails underneath, or, with "360 spin" chosen, are played
+  as the frames of a drag-to-rotate view.
+
+  "See it in action": the product's first video if it has one; otherwise a
+  "Why you'll love it" list, from the product's custom.highlights metafield
+  (a list of single-line text) when set, and this section's blocks when not.
+{%- endcomment -%}
+{%- liquid
+  assign current_variant = product.selected_or_first_available_variant
+  assign featured = current_variant.featured_media | default: product.featured_media
+  assign images = product.media | where: 'media_type', 'image'
+  assign video = product.media | where: 'media_type', 'video' | first
+  assign external_video = product.media | where: 'media_type', 'external_video' | first
+  assign highlights = product.metafields.custom.highlights.value
+
+  assign spin = false
+  if section.settings.gallery_style == 'spin' and images.size > 1
+    assign spin = true
+  endif
+
+  assign max_quantity = ''
+  if current_variant.inventory_management == 'shopify' and current_variant.inventory_policy == 'deny'
+    assign max_quantity = current_variant.inventory_quantity
+  endif
+-%}
+
+<div
+  class="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8"
+  data-product
+  data-product-title="{{ product.title | escape }}"
+  data-update-url="true"
+>
+  <script type="application/json" data-variants>
+    [
+      {%- for variant in product.variants -%}
+        {
+          "id": {{ variant.id }},
+          "options": {{ variant.options | json }},
+          "price": {{ variant.price }},
+          "compare_at_price": {{ variant.compare_at_price | default: 0 }},
+          "available": {{ variant.available | json }},
+          "inventory_management": {{ variant.inventory_management | json }},
+          "inventory_policy": {{ variant.inventory_policy | json }},
+          "inventory_quantity": {{ variant.inventory_quantity | default: 0 }},
+          "featured_media": {% if variant.featured_media %}{ "id": {{ variant.featured_media.id }} }{% else %}null{% endif %}
+        }
+        {%- unless forloop.last -%},{%- endunless -%}
+      {%- endfor -%}
+    ]
+  </script>
+
+  <nav class="text-sm text-maroon-900/50" aria-label="{{ 'products.product.breadcrumb' | t }}">
+    <a href="{{ routes.all_products_collection_url }}" class="hover:underline">{{ 'products.product.breadcrumb_shop' | t }}</a>
+    / <span class="text-maroon-900">{{ product.title }}</span>
+  </nav>
+
+  <div class="mt-6 grid grid-cols-1 gap-10 lg:grid-cols-2">
+    <div class="zoom-in" style="--fade-duration: 0.4s;">
+      {%- if featured -%}
+        <div
+          class="relative aspect-square overflow-hidden rounded-3xl bg-blush-100{% if spin %} cursor-grab touch-none select-none active:cursor-grabbing{% endif %}"
+          style="perspective: 800px; touch-action: pan-y;"
+          data-viewer="{% if spin %}sequence{% else %}tilt{% endif %}"
+          {% if spin %}
+            role="img"
+            aria-label="{{ 'products.product.spin_label' | t: title: product.title | escape }}"
+          {% endif %}
+        >
+          {%- if spin -%}
+            <script type="application/json" data-frames>
+              [
+                {%- for media in images -%}
+                  {{- media.preview_image | image_url: width: 1200 | json -}}
+                  {%- unless forloop.last -%},{%- endunless -%}
+                {%- endfor -%}
+              ]
+            </script>
+          {%- endif -%}
+          {{
+            featured.preview_image
+            | image_url: width: 1200
+            | image_tag:
+              loading: 'eager',
+              fetchpriority: 'high',
+              widths: '600, 800, 1000, 1200',
+              sizes: '(min-width: 1280px) 600px, (min-width: 1024px) 48vw, 100vw',
+              class: 'h-full w-full select-none object-cover',
+              style: 'transform-style: preserve-3d;',
+              alt: featured.alt | default: product.title
+          }}
+          <div class="viewer-hint pointer-events-none absolute bottom-4 left-1/2 flex -translate-x-1/2 items-center gap-1.5 rounded-full bg-maroon-900/70 px-3 py-1.5 text-xs font-medium text-white">
+            {%- render 'icon', name: 'arrows', class: 'h-3.5 w-3.5' -%}
+            {%- if spin -%}
+              {{ 'products.product.spin_hint' | t }}
+            {%- else -%}
+              {{ 'products.product.tilt_hint' | t }}
+            {%- endif -%}
+          </div>
+        </div>
+
+        {%- comment -%} What a variant change or a thumbnail swaps in. {%- endcomment -%}
+        <div hidden>
+          {%- for media in images -%}
+            <span
+              data-media-source="{{ media.id }}"
+              data-src="{{ media.preview_image | image_url: width: 1200 }}"
+              data-srcset="{{ media.preview_image | image_url: width: 600 }} 600w, {{ media.preview_image | image_url: width: 800 }} 800w, {{ media.preview_image | image_url: width: 1000 }} 1000w, {{ media.preview_image | image_url: width: 1200 }} 1200w"
+              data-alt="{{ media.alt | default: product.title | escape }}"
+            ></span>
+          {%- endfor -%}
+        </div>
+
+        {%- if images.size > 1 and spin == false -%}
+          <div class="mt-4 flex gap-3 overflow-x-auto pb-1">
+            {%- for media in images -%}
+              <button
+                type="button"
+                class="h-20 w-20 shrink-0 overflow-hidden rounded-xl bg-blush-100 ring-1 ring-maroon-100{% if media.id == featured.id %} ring-2 ring-maroon-600{% endif %}"
+                data-thumb="{{ media.id }}"
+                aria-label="{{ 'products.product.show_photo' | t: number: forloop.index }}"
+                aria-current="{% if media.id == featured.id %}true{% else %}false{% endif %}"
+              >
+                {{
+                  media.preview_image
+                  | image_url: width: 160
+                  | image_tag: loading: 'lazy', class: 'h-full w-full object-cover', alt: ''
+                }}
+              </button>
+            {%- endfor -%}
+          </div>
+        {%- endif -%}
+      {%- else -%}
+        <div class="aspect-square overflow-hidden rounded-3xl bg-blush-100">
+          {% render 'image-placeholder' %}
+        </div>
+      {%- endif -%}
+    </div>
+
+    <div class="fade-x" style="--fade-x: 20px; --fade-duration: 0.4s; --fade-delay: 0.1s;">
+      {%- if product.type != blank -%}
+        <p class="text-xs font-semibold uppercase tracking-wide text-gold-600">{{ product.type }}</p>
+      {%- endif -%}
+      <h1 class="mt-2 font-display text-3xl text-maroon-900 sm:text-4xl">{{ product.title }}</h1>
+
+      <p class="mt-4 font-display text-2xl text-maroon-700">
+        <span data-price>{{ current_variant.price | money }}</span>
+        <s
+          class="ml-2 text-lg text-maroon-900/40"
+          data-compare-price
+          {% unless current_variant.compare_at_price > current_variant.price %}
+            hidden
+          {% endunless %}
+        >
+          {{- current_variant.compare_at_price | money -}}
+        </s>
+      </p>
+
+      {%- if product.description != blank -%}
+        <div class="rte mt-6 leading-relaxed text-maroon-900/70">{{ product.description }}</div>
+      {%- endif -%}
+
+      <p class="mt-4 text-sm text-maroon-900/50" data-stock>
+        {%- if current_variant.available == false -%}
+          {{ 'products.product.out_of_stock' | t }}
+        {%- elsif current_variant.inventory_management == 'shopify' and current_variant.inventory_quantity > 0 -%}
+          {{ 'products.product.in_stock_count' | t: count: current_variant.inventory_quantity }}
+        {%- else -%}
+          {{ 'products.product.in_stock' | t }}
+        {%- endif -%}
+      </p>
+
+      {%- unless product.has_only_default_variant -%}
+        {%- for option in product.options_with_values -%}
+          <fieldset class="mt-6" data-option-group>
+            <legend class="text-sm font-medium text-maroon-900/70">{{ option.name }}</legend>
+            <div class="mt-2 flex flex-wrap gap-2">
+              {%- for value in option.values -%}
+                <label class="cursor-pointer">
+                  <input
+                    type="radio"
+                    class="peer sr-only"
+                    name="{{ section.id }}-option-{{ option.position }}"
+                    value="{{ value | escape }}"
+                    data-option
+                    {% if option.selected_value == value %}
+                      checked
+                    {% endif %}
+                  >
+                  <span class="inline-block rounded-full bg-white px-4 py-2 text-sm font-medium text-maroon-800 ring-1 ring-maroon-200 transition-colors peer-checked:bg-maroon-700 peer-checked:text-white peer-checked:ring-maroon-700 peer-focus-visible:ring-2 peer-focus-visible:ring-maroon-500">
+                    {{- value -}}
+                  </span>
+                </label>
+              {%- endfor -%}
+            </div>
+          </fieldset>
+        {%- endfor -%}
+      {%- endunless -%}
+
+      {%- form 'product', product, class: 'mt-8', novalidate: 'novalidate', data-product-form: '' -%}
+        <input type="hidden" name="id" value="{{ current_variant.id }}">
+        <div class="flex items-center gap-4">
+          <div class="flex items-center rounded-full border border-maroon-200 bg-white">
+            <button
+              type="button"
+              class="px-4 py-2 text-lg text-maroon-700"
+              data-qty-step="-1"
+              aria-label="{{ 'products.product.quantity_decrease' | t }}"
+            >
+              -
+            </button>
+            <input
+              type="number"
+              name="quantity"
+              value="1"
+              min="1"
+              {% if max_quantity != '' %}
+                max="{{ max_quantity }}"
+              {% endif %}
+              class="qty-input w-8 bg-transparent text-center outline-none"
+              aria-label="{{ 'products.product.quantity' | t }}"
+            >
+            <button
+              type="button"
+              class="px-4 py-2 text-lg text-maroon-700"
+              data-qty-step="1"
+              aria-label="{{ 'products.product.quantity_increase' | t }}"
+            >
+              +
+            </button>
+          </div>
+
+          <button
+            type="submit"
+            class="tap-shrink tap-shrink-sm flex-1 rounded-full bg-maroon-700 px-8 py-3 text-sm font-semibold text-white shadow-lg hover:bg-maroon-800 disabled:opacity-50"
+            data-add-button
+            {% unless current_variant.available %}
+              disabled
+            {% endunless %}
+          >
+            <span data-add-label>
+              {%- if current_variant.available -%}
+                {{ 'products.product.add_to_cart' | t }}
+              {%- else -%}
+                {{ 'products.product.sold_out' | t }}
+              {%- endif -%}
+            </span>
+          </button>
+        </div>
+      {%- endform -%}
+    </div>
+  </div>
+
+  {%- if section.settings.show_highlights -%}
+    <div class="mt-16">
+      {%- if section.settings.highlights_heading != blank -%}
+        <h2 class="font-display text-2xl text-maroon-800">{{ section.settings.highlights_heading }}</h2>
+      {%- endif -%}
+      <div class="mt-6 max-w-2xl">
+        {%- if video -%}
+          <div class="relative overflow-hidden rounded-3xl bg-maroon-900" data-video>
+            {{
+              video
+              | video_tag:
+                image_size: '1200x',
+                muted: true,
+                loop: true,
+                autoplay: true,
+                playsinline: true,
+                controls: false,
+                class: 'aspect-video w-full object-cover'
+            }}
+            <button
+              type="button"
+              class="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-maroon-900/30 text-white transition-colors hover:bg-maroon-900/40"
+              data-unmute
+            >
+              <span class="flex h-14 w-14 items-center justify-center rounded-full bg-white/90 text-maroon-800 shadow-lg">
+                {%- render 'icon', name: 'play', class: 'h-6 w-6 translate-x-0.5' -%}
+              </span>
+              <span class="text-sm font-medium">{{ 'products.product.tap_for_sound' | t }}</span>
+            </button>
+            <button
+              type="button"
+              class="absolute bottom-4 right-4 flex h-9 w-9 items-center justify-center rounded-full bg-white/90 text-maroon-800 shadow"
+              data-mute
+              aria-label="{{ 'products.product.mute' | t }}"
+              hidden
+            >
+              {%- render 'icon', name: 'volume', class: 'h-4 w-4' -%}
+            </button>
+          </div>
+        {%- elsif external_video -%}
+          <div class="overflow-hidden rounded-3xl bg-maroon-900">
+            {{
+              external_video
+              | external_video_url: autoplay: 1, mute: 1, loop: 1, playsinline: 1
+              | external_video_tag: class: 'aspect-video w-full'
+            }}
+          </div>
+        {%- else -%}
+          <div class="rounded-3xl bg-white p-6 ring-1 ring-maroon-100 sm:p-8">
+            {%- if section.settings.highlights_label != blank -%}
+              <p class="text-xs font-semibold uppercase tracking-widest text-gold-600">{{ section.settings.highlights_label }}</p>
+            {%- endif -%}
+            <ul class="mt-4 space-y-4">
+              {%- if highlights != blank -%}
+                {%- for item in highlights -%}
+                  {% render 'highlight-item', text: item, index: forloop.index0 %}
+                {%- endfor -%}
+              {%- else -%}
+                {%- for block in section.blocks -%}
+                  {% render 'highlight-item', text: block.settings.text, index: forloop.index0, attributes: block.shopify_attributes %}
+                {%- endfor -%}
+              {%- endif -%}
+            </ul>
+          </div>
+        {%- endif -%}
+      </div>
+    </div>
+  {%- endif -%}
+</div>
+
+<script type="application/ld+json">
+  {{ product | structured_data }}
+</script>
+
+{% schema %}
+{
+  "name": "Product",
+  "tag": "section",
+  "settings": [
+    {
+      "type": "select",
+      "id": "gallery_style",
+      "label": "Photo viewer",
+      "options": [
+        { "value": "tilt", "label": "Tilt, with thumbnails" },
+        { "value": "spin", "label": "360 spin (photos are rotation frames)" }
+      ],
+      "default": "tilt",
+      "info": "360 spin plays all the product's photos as one turning view. Only choose it for products photographed all the way round."
+    },
+    {
+      "type": "header",
+      "content": "See it in action"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_highlights",
+      "label": "Show video or highlights",
+      "default": true
+    },
+    {
+      "type": "text",
+      "id": "highlights_heading",
+      "label": "Heading",
+      "default": "See it in action"
+    },
+    {
+      "type": "text",
+      "id": "highlights_label",
+      "label": "Highlights label",
+      "default": "Why you'll love it"
+    },
+    {
+      "type": "paragraph",
+      "content": "A product's own highlights come from its custom.highlights metafield (list of single line text). Products without one show the highlights below."
+    }
+  ],
+  "blocks": [
+    {
+      "type": "highlight",
+      "name": "Highlight",
+      "settings": [
+        {
+          "type": "text",
+          "id": "text",
+          "label": "Text",
+          "default": "Thoughtfully made with everyday use in mind"
+        }
+      ]
+    }
+  ]
+}
+{% endschema %}
